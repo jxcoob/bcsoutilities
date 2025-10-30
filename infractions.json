@@ -1,0 +1,26 @@
+{
+  "infractions": [
+    {
+      "id": "IF3",
+      "userId": "610876872682897440",
+      "type": "Strike",
+      "reason": "Disrespect to administration",
+      "division": null,
+      "evidence": null,
+      "moderator": "1084207978195996692",
+      "timestamp": "2025-10-23T01:18:21.924Z",
+      "revoked": false
+    },
+    {
+      "id": "IF4",
+      "userId": "1084207978195996692",
+      "type": "Termination",
+      "reason": "He likes men.",
+      "division": null,
+      "evidence": null,
+      "moderator": "610876872682897440",
+      "timestamp": "2025-10-23T01:19:18.950Z",
+      "revoked": false
+    }
+  ]
+}

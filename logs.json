@@ -1,0 +1,64 @@
+{
+  "citations": [
+    {
+      "id": "#C00001",
+      "username": "Botflimflam1_1",
+      "reason": "Indecent Exposure",
+      "fine": "$1000",
+      "moderator": "1084207978195996692",
+      "timestamp": "2025-10-19T20:27:29.539Z"
+    }
+  ],
+  "arrests": [
+    {
+      "id": "#A00001",
+      "username": "test",
+      "charges": "test",
+      "moderator": "1084207978195996692",
+      "timestamp": "2025-10-15T03:08:19.356Z"
+    },
+    {
+      "id": "#A00002",
+      "username": "test",
+      "charges": "test",
+      "moderator": "1084207978195996692",
+      "timestamp": "2025-10-19T20:38:49.143Z"
+    }
+  ],
+  "warrants": [
+    {
+      "id": "#W00001",
+      "username": "Test",
+      "charges": "test",
+      "moderator": "1084207978195996692",
+      "timestamp": "2025-10-19T20:50:35.070Z"
+    },
+    {
+      "id": "#W00002",
+      "username": "Test",
+      "charges": "test",
+      "moderator": "1084207978195996692",
+      "timestamp": "2025-10-19T20:59:37.320Z"
+    }
+  ],
+  "reports": [
+    {
+      "id": "#R00001",
+      "sceneLocation": "test",
+      "callsign": "test",
+      "description": "estst",
+      "outcome": "test",
+      "moderator": "1084207978195996692",
+      "timestamp": "2025-10-15T03:39:33.565Z"
+    },
+    {
+      "id": "#R00002",
+      "sceneLocation": "test",
+      "callsign": "setst",
+      "description": "estest",
+      "outcome": "ststtt",
+      "moderator": "1084207978195996692",
+      "timestamp": "2025-10-19T20:38:56.417Z"
+    }
+  ]
+}
