@@ -597,11 +597,29 @@ const commands = [
 
 
 
-  new SlashCommandBuilder()
-    .setName('statistics')
-    .setDescription('View statistics on logs issued')
-    .setDefaultMemberPermissions(null)
-    .toJSON(),
+new SlashCommandBuilder()
+  .setName('statistics')
+  .setDescription('View statistics on logs issued')
+  .setDefaultMemberPermissions(null)
+  .addSubcommand(sub =>
+    sub.setName('view')
+      .setDescription('View statistics for a specific user')
+      .addUserOption(opt => opt.setName('user').setDescription('User to view stats for').setRequired(true))
+      .addStringOption(opt => opt.setName('duration').setDescription('How far back to view stats').setRequired(false)
+        .addChoices(
+          {name: 'Last 24 Hours', value: '24h'},
+          {name: 'Last 7 Days', value: '7d'},
+          {name: 'Last 30 Days', value: '30d'},
+          {name: 'Last 90 Days', value: '90d'},
+          {name: 'All Time', value: 'all'}
+        )
+      )
+  )
+  .addSubcommand(sub =>
+    sub.setName('personal')
+      .setDescription('View your own statistics')
+  )
+  .toJSON(),
 
 
 
