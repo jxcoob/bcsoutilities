@@ -2866,10 +2866,101 @@ else if(cmd==='massshift-start'){
 
 
 
-    else if(cmd==='statistics'){
-      if(!interaction.member.roles.cache.some(r => r.id === '1410486708998373387')){
-        return interaction.reply({content:'You do not have permission to view statistics.', flags: MessageFlags.Ephemeral});
+else if(cmd==='statistics'){
+  const sub = interaction.options.getSubcommand();
+  
+  if(sub === 'view') {
+    // Only role 1405655436585205846 can use this
+    if(!interaction.member.roles.cache.some(r => r.id === '1405655436585205846')){
+      return interaction.reply({content:'You do not have permission to view other users\' statistics.', flags: MessageFlags.Ephemeral});
+    }
+
+    const targetUser = interaction.options.getUser('user');
+    const duration = interaction.options.getString('duration') || 'all';
+    const logs = loadLogs();
+
+    // Calculate the time threshold based on duration
+    let timeThreshold = 0;
+    const now = Date.now();
+    
+    if(duration !== 'all') {
+      switch(duration) {
+        case '24h':
+          timeThreshold = now - (24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          timeThreshold = now - (7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          timeThreshold = now - (30 * 24 * 60 * 60 * 1000);
+          break;
+        case '90d':
+          timeThreshold = now - (90 * 24 * 60 * 60 * 1000);
+          break;
       }
+    }
+
+    // Filter logs by user and time
+    const filterByTime = (log) => {
+      if(duration === 'all') return true;
+      return new Date(log.timestamp).getTime() >= timeThreshold;
+    };
+
+    const userCitations = logs.citations.filter(c => c.moderator === targetUser.id && filterByTime(c));
+    const userArrests = logs.arrests.filter(a => a.moderator === targetUser.id && filterByTime(a));
+    const userWarrants = logs.warrants.filter(w => w.moderator === targetUser.id && filterByTime(w));
+
+    // Create duration text for embed
+    const durationText = {
+      '24h': 'Last 24 Hours',
+      '7d': 'Last 7 Days',
+      '30d': 'Last 30 Days',
+      '90d': 'Last 90 Days',
+      'all': 'All Time'
+    };
+
+    const embed = new EmbedBuilder()
+      .setTitle(`Statistics for ${targetUser.tag}`)
+      .setDescription(`**Duration:** ${durationText[duration]}`)
+      .setColor('#95A5A6')
+      .addFields(
+        {name:'Citations Issued',value:`${userCitations.length}`,inline:true},
+        {name:'Arrests Issued',value:`${userArrests.length}`,inline:true},
+        {name:'Warrants Issued',value:`${userWarrants.length}`,inline:true}
+      )
+      .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+      .setFooter({text:'BCSO Utilities'})
+      .setTimestamp();
+
+    await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
+  }
+  
+  else if(sub === 'personal') {
+    // Anyone with the deputy role can view their own stats
+    if(!interaction.member.roles.cache.some(r => r.id === '1410486708998373387')){
+      return interaction.reply({content:'You do not have permission to view statistics.', flags: MessageFlags.Ephemeral});
+    }
+
+    const logs = loadLogs();
+    const userCitations = logs.citations.filter(c => c.moderator === interaction.user.id);
+    const userArrests = logs.arrests.filter(a => a.moderator === interaction.user.id);
+    const userWarrants = logs.warrants.filter(w => w.moderator === interaction.user.id);
+
+    const embed = new EmbedBuilder()
+      .setTitle('Your Statistics')
+      .setColor('#95A5A6')
+      .addFields(
+        {name:'Citations Issued',value:`${userCitations.length}`,inline:true},
+        {name:'Arrests Issued',value:`${userArrests.length}`,inline:true},
+        {name:'Warrants Issued',value:`${userWarrants.length}`,inline:true}
+      )
+      .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+      .setFooter({text:'BCSO Utilities'})
+      .setTimestamp();
+
+    await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
+  }
+}
 
 
 
