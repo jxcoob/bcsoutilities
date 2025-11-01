@@ -2696,7 +2696,7 @@ else if(cmd==='massshift-start'){
           {name:'Callsign / Roleplay Name',value:callsign,inline:false},
           {name:'Description',value:description,inline:false},
           {name:'Outcome',value:outcome,inline:false},
-          {name:'Submitted By',value:`${interaction.user.tag}`,inline:false}
+          {name:'Submitted By',value:`${interaction.user}`,inline:false}
         )
         .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
         .setFooter({text:'BCSO Utilities'})
