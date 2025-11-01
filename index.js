@@ -2407,7 +2407,7 @@ else if(cmd==='massshift-start'){
 
       const embed = new EmbedBuilder()
         .setTitle('Briarfield County Sheriff\'s Office Mass Shift - End')
-        .setDescription('The mass shift has now concluded. Thank you to all deputies who attending this mass shift, your hard work will not go unnoticed!')
+        .setDescription('The mass shift has now concluded. Thank you to all deputies who attended this mass shift, your hard work will not go unnoticed!')
         .setColor('#95A5A6')
         .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68ee68f0&is=68ed1770&hm=0286521c6e016e73a8f64be6f2ebd6ff20b4e2319c6121a1269ff4b816667ced&=&format=webp&quality=lossless')
         .setFooter({text:`Concluded by ${interaction.user.tag}`})
