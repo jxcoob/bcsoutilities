@@ -3871,6 +3871,12 @@ app.listen(3000,()=>console.log('Web server running on port 3000'));
 
 
 
+// ====== EXPRESS WEB SERVER ======
+const app = express();
+app.get('/', (req, res) => res.send('Bot is alive!'));
+app.listen(3000, () => console.log('Web server running on port 3000'));
+
+// ====== LOGIN TO DISCORD ======
 client.login(token).catch(err => {
   console.error('❌ Failed to login to Discord:');
   console.error('Error:', err.message);
