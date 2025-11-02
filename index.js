@@ -1105,58 +1105,115 @@ if(interaction.customId.startsWith('warrant_completed_') || interaction.customId
     }
 
     // OPERATION BUTTON HANDLER - NOW AT THE CORRECT LEVEL
-    if(interaction.customId.startsWith('initiate_operation_')) {
-      const caseId = interaction.customId.split('_')[2];
-      
-      if(!global.caseData || !global.caseData[caseId]) {
-        return interaction.reply({content:'Case data not found.', flags: MessageFlags.Ephemeral});
-      }
+  if(interaction.customId.startsWith('initiate_operation_')) {
+    const caseId = interaction.customId.split('_')[2];
+    
+    if(!global.caseData || !global.caseData[caseId]) {
+      return interaction.reply({content:'Case data not found.', flags: MessageFlags.Ephemeral});
+    }
 
-      const caseInfo = global.caseData[caseId];
-      
-      const disabledButton = new ButtonBuilder()
-        .setCustomId(`initiate_operation_${caseId}`)
-        .setLabel('Operation Initiated')
-        .setStyle(ButtonStyle.Success)
-        .setDisabled(true);
+    const caseInfo = global.caseData[caseId];
+    
+    const disabledButton = new ButtonBuilder()
+      .setCustomId(`initiate_operation_${caseId}`)
+      .setLabel('Operation Initiated')
+      .setStyle(ButtonStyle.Success)
+      .setDisabled(true);
 
-      const disabledRow = new ActionRowBuilder()
-        .addComponents(disabledButton);
+    const disabledRow = new ActionRowBuilder()
+      .addComponents(disabledButton);
 
-      await interaction.update({components: [disabledRow]});
+    await interaction.update({components: [disabledRow]});
 
-      const operationEmbed = new EmbedBuilder()
-        .setTitle('<:sword:1434375302355619930> UOTF Case Report')
-        .setDescription(`A new case has been built up. Operators are now prompted to carry out this operation with a Team Leader or CRU Commander. Please stage and build up your plans for this operation to commence down below. React to this post if you are willing to attend this operation.\n\n**Suspects Involved:**\n\n${caseInfo.suspects}\n\n**Charges:**\n\n${caseInfo.charges}\n\n**Case Report:**\n\n${caseInfo.caseReport}`)
-        .setColor('#95A5A6')
-        .addFields(
-          {name:'Initiated By', value:`<@${caseInfo.initiator}>`, inline:true},
-          {name:'Case ID', value:caseId, inline:true}
-        )
-        .setFooter({text:'BCSO Utilities'})
-        .setTimestamp();
+    const operationEmbed = new EmbedBuilder()
+      .setTitle('<:sword:1434375302355619930> UOTF Case Report')
+      .setDescription(`A new case has been built up. Operators are now prompted to carry out this operation with a Team Leader or CRU Commander. Please stage and build up your plans for this operation to commence down below. React to this post if you are willing to attend this operation.\n\n**Suspects Involved:**\n\n${caseInfo.suspects}\n\n**Charges:**\n\n${caseInfo.charges}\n\n**Case Report:**\n\n${caseInfo.caseReport}`)
+      .setColor('#95A5A6')
+      .addFields(
+        {name:'Initiated By', value:`<@${caseInfo.initiator}>`, inline:true},
+        {name:'Case ID', value:caseId, inline:true}
+      )
+      .setFooter({text:'BCSO Utilities'})
+      .setTimestamp();
 
-      const cruForumChannelId = '1434380299604590623';
-      const cruForumChannel = await interaction.client.channels.fetch(cruForumChannelId);
-      
-      if(cruForumChannel) {
-        await cruForumChannel.threads.create({
-          name: caseId,
-          message: {
-            embeds: [operationEmbed]
-          }
-        });
-      }
+    // ADD COMPLETION BUTTON TO OPERATIONS CHANNEL
+    const completeButton = new ButtonBuilder()
+      .setCustomId(`complete_operation_${caseId}`)
+      .setLabel('Complete Operation?')
+      .setStyle(ButtonStyle.Primary);
 
-      await interaction.followUp({
-        content: `✅ Operation has been initiated and forwarded to the Critical Response Unit.`,
-        flags: MessageFlags.Ephemeral
+    const buttonRow = new ActionRowBuilder()
+      .addComponents(completeButton);
+
+    const cruForumChannelId = '1434380299604590623';
+    const cruForumChannel = await interaction.client.channels.fetch(cruForumChannelId);
+    
+    if(cruForumChannel) {
+      await cruForumChannel.threads.create({
+        name: caseId,
+        message: {
+          embeds: [operationEmbed],
+          components: [buttonRow] // Add the button here
+        }
       });
+    }
+
+    await interaction.followUp({
+      content: `✅ Operation has been initiated and forwarded to the Critical Response Unit.`,
+      flags: MessageFlags.Ephemeral
+    });
+    
+    return;
+  }
+});
       
       return;
     }
   }
 
+    if(interaction.customId.startsWith('complete_operation_')) {
+      const caseId = interaction.customId.split('_')[2];
+      
+      const completedButton = new ButtonBuilder()
+        .setCustomId(`complete_operation_${caseId}`)
+        .setLabel('Operation Concluded')
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(true);
+
+      const disabledRow = new ActionRowBuilder()
+        .addComponents(completedButton);
+
+      const embed = interaction.message.embeds[0];
+      const updatedEmbed = new EmbedBuilder(embed.data)
+        .setColor('#2ECC71'); // Green color for completed
+
+      await interaction.update({
+        embeds: [updatedEmbed],
+        components: [disabledRow]
+      });
+
+      // Log to oversight channel
+      const oversightChannelId = '1434380983498444800';
+      const oversightChannel = await interaction.client.channels.fetch(oversightChannelId);
+      
+      if(oversightChannel) {
+        const logEmbed = new EmbedBuilder()
+          .setTitle('Operation Completed')
+          .setDescription(`Case ${caseId} has been marked as completed by ${interaction.user}`)
+          .setColor('#2ECC71')
+          .addFields(
+            {name:'Case ID', value:caseId, inline:true},
+            {name:'Completed By', value:`${interaction.user}`, inline:true},
+            {name:'Completed At', value:`<t:${Math.floor(Date.now()/1000)}:F>`, inline:true}
+          )
+          .setFooter({text:'BCSO Utilities'})
+          .setTimestamp();
+        
+        await oversightChannel.send({embeds:[logEmbed]});
+      }
+
+      return;
+    }
 
 
 
