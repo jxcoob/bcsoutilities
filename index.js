@@ -1022,58 +1022,23 @@ client.on('interactionCreate', async interaction=>{
       return;
     }
     
-    if(interaction.customId.startsWith('warrant_completed_') || interaction.customId.startsWith('warrant_remove_')) {
+if(interaction.customId.startsWith('warrant_completed_') || interaction.customId.startsWith('warrant_remove_')) {
       const isCompleted = interaction.customId.startsWith('warrant_completed_');
       const warrantId = interaction.customId.split('_')[2];
       const completedUser = interaction.user.tag;
       const removedUser = interaction.user.tag;
 
-
-
-
-
-
-
-
       const embed = interaction.message.embeds[0];
-
-
-
-
-
-
-
 
       const warrantChannelId = '1412528915381092462';
       const warrantAnnounceChannelId = '1428920503438934046';
 
-
-
-
-
-
-
-
       const currentChannelId = interaction.channel.id;
       const otherChannelId = currentChannelId === warrantChannelId ? warrantAnnounceChannelId : warrantChannelId;
-
-
-
-
-
-
-
 
       if(isCompleted) {
         const updatedEmbed = new EmbedBuilder(embed.data)
           .setColor('#2ECC71');
-
-
-
-
-
-
-
 
         const completedButton = new ButtonBuilder()
           .setCustomId(`warrant_completed_${warrantId}`)
@@ -1081,31 +1046,10 @@ client.on('interactionCreate', async interaction=>{
           .setStyle(ButtonStyle.Success)
           .setDisabled(true);
 
-
-
-
-
-
-
-
         const buttonRow = new ActionRowBuilder()
           .addComponents(completedButton);
 
-
-
-
-
-
-
-
         await interaction.update({embeds: [updatedEmbed], components: [buttonRow]});
-
-
-
-
-
-
-
 
         try {
           const otherChannel = await interaction.client.channels.fetch(otherChannelId);
@@ -1116,13 +1060,6 @@ client.on('interactionCreate', async interaction=>{
               msg.embeds[0].data.description && 
               msg.embeds[0].data.description.includes(warrantId)
             );
-
-
-
-
-
-
-
 
             if(targetMessage) {
               await targetMessage.edit({embeds: [updatedEmbed], components: [buttonRow]});
@@ -1135,44 +1072,16 @@ client.on('interactionCreate', async interaction=>{
         const updatedEmbed = new EmbedBuilder(embed.data)
           .setColor('#95A5A6');
 
-
-
-
-
-
-
-
         const removeButton = new ButtonBuilder()
           .setCustomId(`warrant_remove_${warrantId}`)
           .setLabel(`Warrant Removed by ${removedUser}`)
           .setStyle(ButtonStyle.Danger)
           .setDisabled(true);
 
-
-
-
-
-
-
-
         const buttonRow = new ActionRowBuilder()
           .addComponents(removeButton);
 
-
-
-
-
-
-
-
         await interaction.update({embeds: [updatedEmbed], components: [buttonRow]});
-
-
-
-
-
-
-
 
         try {
           const otherChannel = await interaction.client.channels.fetch(otherChannelId);
@@ -1184,13 +1093,6 @@ client.on('interactionCreate', async interaction=>{
               msg.embeds[0].data.description.includes(warrantId)
             );
 
-
-
-
-
-
-
-
             if(targetMessage) {
               await targetMessage.edit({embeds: [updatedEmbed], components: [buttonRow]});
             }
@@ -1198,59 +1100,59 @@ client.on('interactionCreate', async interaction=>{
         } catch(err) {
           console.error('Error updating other channel:', err);
         }
-            if(interaction.customId.startsWith('initiate_operation_')) {
-  const caseId = interaction.customId.split('_')[2];
-  
-  if(!global.caseData || !global.caseData[caseId]) {
-    return interaction.reply({content:'Case data not found.', flags: MessageFlags.Ephemeral});
-  }
-
-  const caseInfo = global.caseData[caseId];
-  
-  // Disable the button
-  const disabledButton = new ButtonBuilder()
-    .setCustomId(`initiate_operation_${caseId}`)
-    .setLabel('Operation Initiated')
-    .setStyle(ButtonStyle.Success)
-    .setDisabled(true);
-
-  const disabledRow = new ActionRowBuilder()
-    .addComponents(disabledButton);
-
-  await interaction.update({components: [disabledRow]});
-
-  // Create embed for CRU operations channel
-  const operationEmbed = new EmbedBuilder()
-    .setTitle('<:sword:1434375302355619930> UOTF Case Report')
-    .setDescription(`A new case has been built up. Operators are now prompted to carry out this operation with a Team Leader or CRU Commander. Please stage and build up your plans for this operation to commence down below. React to this post if you are willing to attend this operation.\n\n**Suspects Involved:**\n\n${caseInfo.suspects}\n\n**Charges:**\n\n${caseInfo.charges}\n\n**Case Report:**\n\n${caseInfo.caseReport}`)
-    .setColor('#95A5A6')
-    .addFields(
-      {name:'Initiated By', value:`<@${caseInfo.initiator}>`, inline:true},
-      {name:'Case ID', value:caseId, inline:true}
-    )
-    .setFooter({text:'BCSO Utilities'})
-    .setTimestamp();
-
-  // Send to CRU operations forum
-  const cruForumChannelId = '1434380299604590623';
-  const cruForumChannel = await interaction.client.channels.fetch(cruForumChannelId);
-  
-  if(cruForumChannel) {
-    await cruForumChannel.threads.create({
-      name: caseId,
-      message: {
-        embeds: [operationEmbed]
       }
-    });
-  }
+      return;
+    }
 
-        await interaction.followUp({
-    content: `✅ Operation has been initiated and forwarded to the Critical Response Unit.`,
-    flags: MessageFlags.Ephemeral
-  });
-}
+    // OPERATION BUTTON HANDLER - NOW AT THE CORRECT LEVEL
+    if(interaction.customId.startsWith('initiate_operation_')) {
+      const caseId = interaction.customId.split('_')[2];
+      
+      if(!global.caseData || !global.caseData[caseId]) {
+        return interaction.reply({content:'Case data not found.', flags: MessageFlags.Ephemeral});
+      }
 
-}
+      const caseInfo = global.caseData[caseId];
+      
+      const disabledButton = new ButtonBuilder()
+        .setCustomId(`initiate_operation_${caseId}`)
+        .setLabel('Operation Initiated')
+        .setStyle(ButtonStyle.Success)
+        .setDisabled(true);
+
+      const disabledRow = new ActionRowBuilder()
+        .addComponents(disabledButton);
+
+      await interaction.update({components: [disabledRow]});
+
+      const operationEmbed = new EmbedBuilder()
+        .setTitle('<:sword:1434375302355619930> UOTF Case Report')
+        .setDescription(`A new case has been built up. Operators are now prompted to carry out this operation with a Team Leader or CRU Commander. Please stage and build up your plans for this operation to commence down below. React to this post if you are willing to attend this operation.\n\n**Suspects Involved:**\n\n${caseInfo.suspects}\n\n**Charges:**\n\n${caseInfo.charges}\n\n**Case Report:**\n\n${caseInfo.caseReport}`)
+        .setColor('#95A5A6')
+        .addFields(
+          {name:'Initiated By', value:`<@${caseInfo.initiator}>`, inline:true},
+          {name:'Case ID', value:caseId, inline:true}
+        )
+        .setFooter({text:'BCSO Utilities'})
+        .setTimestamp();
+
+      const cruForumChannelId = '1434380299604590623';
+      const cruForumChannel = await interaction.client.channels.fetch(cruForumChannelId);
+      
+      if(cruForumChannel) {
+        await cruForumChannel.threads.create({
+          name: caseId,
+          message: {
+            embeds: [operationEmbed]
+          }
+        });
+      }
+
+      await interaction.followUp({
+        content: `✅ Operation has been initiated and forwarded to the Critical Response Unit.`,
+        flags: MessageFlags.Ephemeral
+      });
+      
       return;
     }
   }
