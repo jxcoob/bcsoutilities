@@ -1497,6 +1497,64 @@ client.on('interactionCreate', async interaction=>{
 
 
 
+
+      
+
+
+        const wipeEmbed = new EmbedBuilder()
+          .setTitle('Infractions Wiped')
+          .setColor('#95A5A6')
+          .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+          .addFields(
+            {name:'User',value:`${targetUser}`,inline:true},
+            {name:'Infractions Removed',value:`${infractionCount}`,inline:true},
+            {name:'Wiped By',value:`<@${interaction.user.id}>`,inline:true}
+          )
+          .setFooter({text:'BCSO Utilities'})
+          .setTimestamp();
+
+
+
+
+
+
+
+
+        try{ 
+          await targetUser.send({
+            embeds:[new EmbedBuilder()
+              .setTitle('Your Infractions Have Been Wiped')
+              .setColor('#95A5A6')
+              .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+              .setDescription(`All of your infractions (${infractionCount}) have been removed from the system.`)
+              .setFooter({text:'BCSO Utilities'})
+              .setTimestamp()]
+          }); 
+        }catch{}
+
+
+
+
+
+
+
+
+
+
+        const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+        if(logChannel) await logChannel.send({embeds:[wipeEmbed]});
+
+
+
+
+
+
+
+
+        await interaction.reply({content:`Wiped all ${infractionCount} infraction(s) for ${targetUser.tag}.`, flags: MessageFlags.Ephemeral});
+      }
+    }
+
 else if(cmd==='log-case'){
   const allowedCaseRoles = [
     '1405655436585205846', '1430515221553877032', '1405655436538941570',
@@ -1580,39 +1638,6 @@ else if(cmd==='log-case'){
 
   await interaction.reply({content:`Case ${caseId} logged successfully and posted to the forum.`, flags: MessageFlags.Ephemeral});
 }
-      
-
-
-        const wipeEmbed = new EmbedBuilder()
-          .setTitle('Infractions Wiped')
-          .setColor('#95A5A6')
-          .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
-          .addFields(
-            {name:'User',value:`${targetUser}`,inline:true},
-            {name:'Infractions Removed',value:`${infractionCount}`,inline:true},
-            {name:'Wiped By',value:`<@${interaction.user.id}>`,inline:true}
-          )
-          .setFooter({text:'BCSO Utilities'})
-          .setTimestamp();
-
-
-
-
-
-
-
-
-        try{ 
-          await targetUser.send({
-            embeds:[new EmbedBuilder()
-              .setTitle('Your Infractions Have Been Wiped')
-              .setColor('#95A5A6')
-              .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
-              .setDescription(`All of your infractions (${infractionCount}) have been removed from the system.`)
-              .setFooter({text:'BCSO Utilities'})
-              .setTimestamp()]
-          }); 
-        }catch{}
 
       if(interaction.customId.startsWith('initiate_operation_')) {
   const caseId = interaction.customId.split('_')[2];
@@ -1665,28 +1690,6 @@ else if(cmd==='log-case'){
     flags: MessageFlags.Ephemeral
   });
 }
-
-
-
-
-
-
-
-        const logChannel = await interaction.client.channels.fetch('1405655437218414753');
-        if(logChannel) await logChannel.send({embeds:[wipeEmbed]});
-
-
-
-
-
-
-
-
-        await interaction.reply({content:`Wiped all ${infractionCount} infraction(s) for ${targetUser.tag}.`, flags: MessageFlags.Ephemeral});
-      }
-    }
-
-
 
 
 
