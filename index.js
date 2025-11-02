@@ -3871,4 +3871,10 @@ app.listen(3000,()=>console.log('Web server running on port 3000'));
 
 
 
-client.login(token)};})
+client.login(token).catch(err => {
+  console.error('❌ Failed to login to Discord:');
+  console.error('Error:', err.message);
+  console.error('Token exists:', !!token);
+  console.error('Token format valid:', token && token.length > 50);
+  process.exit(1);
+});
