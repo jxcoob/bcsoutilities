@@ -64,6 +64,7 @@ const retireReinstate_rolesToManage = [
   "1432593948295036968","1432594307709145178","1432569127528042528",
   "1432578593891815444","1410485214274125907","1432568049038393404",                              
   "1432572282219401357","1405655436492931237","1430280806571704320",
+  "1434363924278542466","1434364727160475698","1434364895331090549",
 ];
 
 
@@ -163,7 +164,12 @@ function loadCounter() {
 
 
 
-
+function generateCaseID() {
+  const randomDigit = Math.floor(Math.random() * 10);
+  const randomLetter = String.fromCharCode(65 + Math.floor(Math.random() * 26)); // A-Z
+  const randomNumbers = String(Math.floor(Math.random() * 100)).padStart(2, '0');
+  return `UO${randomDigit}${randomLetter}${randomNumbers}`;
+}
 
 
 
@@ -312,13 +318,6 @@ function generateWarrantID() {
 function generateReportID() {
   reportCounter++;
   return `#R${String(reportCounter).padStart(5, '0')}`;
-}
-
-function generateCaseID() {
-  const randomDigit = Math.floor(Math.random() * 10);
-  const randomLetter = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-  const randomNumbers = String(Math.floor(Math.random() * 100)).padStart(2, '0');
-  return `UO${randomDigit}${randomLetter}${randomNumbers}`;
 }
 
 function loadRetiredUsers() {
@@ -685,7 +684,7 @@ new SlashCommandBuilder()
         {name: "Sheriff's Recognition Award", value: "Sheriff's Recognition Award"},
         {name: 'Distinguished Service Award', value: 'Distinguished Service Award'},
         {name: 'Lifesaving Award', value: 'Lifesaving Award'},
-        {name: 'Meritorious Activity Award', value: 'Meritorious Activity Award'}
+        {name: 'Meritorious Activity Award', value: 'Meritorious Activity Award'},
       )
     )
     .toJSON(),
@@ -728,20 +727,22 @@ new SlashCommandBuilder()
     .setDescription('End the CRU deployment')
     .setDefaultMemberPermissions(null)
     .toJSON(),
-new SlashCommandBuilder()
-    .setName('deployment-end')
-    .setDescription('End the CRU deployment')
-    .setDefaultMemberPermissions(null)
-    .toJSON(),
+
+
+
+
+
+
 
 new SlashCommandBuilder()
-    .setName('log-case')
-    .setDescription('Log a new UOTF case buildup')
-    .setDefaultMemberPermissions(null)
-    .addStringOption(opt => opt.setName('suspects').setDescription('List all suspects (separate each with a comma)').setRequired(true))
-    .addStringOption(opt => opt.setName('charges').setDescription('List all charges (separate each with a comma)').setRequired(true))
-    .addStringOption(opt => opt.setName('case-report').setDescription('Detailed case report').setRequired(true))
-    .toJSON(),
+  .setName('log-case')
+  .setDescription('Log a new UOTF case buildup')
+  .setDefaultMemberPermissions(null)
+  .addStringOption(opt => opt.setName('suspects').setDescription('List all the suspects involved in the case, separate each suspect with a comma.').setRequired(true))
+  .addStringOption(opt => opt.setName('charges').setDescription('List all the charges taken against the suspects involved in the case, separate each charge with a comma.').setRequired(true))
+  .addStringOption(opt => opt.setName('case-report').setDescription('Detailed case report').setRequired(true))
+  .toJSON(),
+  
 ];
 
 
@@ -860,58 +861,6 @@ client.on('messageCreate', async message=>{
 // ====== INTERACTION HANDLER ======
 client.on('interactionCreate', async interaction=>{
   if(interaction.isButton()) {
-
-  if(interaction.isButton()) {
-    // INITIATE OPERATION BUTTON
-    if(interaction.customId.startsWith('initiate_operation_')) {
-      const caseId = interaction.customId.split('_')[2];
-      
-      if(!global.caseData || !global.caseData[caseId]) {
-        return interaction.reply({content:'Case data not found.', flags: MessageFlags.Ephemeral});
-      }
-
-      const caseInfo = global.caseData[caseId];
-      
-      const disabledButton = new ButtonBuilder()
-        .setCustomId(`initiate_operation_${caseId}`)
-        .setLabel('Operation Initiated')
-        .setStyle(ButtonStyle.Success)
-        .setDisabled(true);
-
-      const disabledRow = new ActionRowBuilder()
-        .addComponents(disabledButton);
-
-      await interaction.update({components: [disabledRow]});
-
-      const operationEmbed = new EmbedBuilder()
-        .setTitle('<:sword:1434375302355619930> UOTF Case Report')
-        .setDescription(`A new case has been built up. Operators are now prompted to carry out this operation with a Team Leader or CRU Commander. Please stage and build up your plans for this operation to commence down below. React to this post if you are willing to attend this operation.\n\n**Suspects Involved:**\n\n${caseInfo.suspects}\n\n**Charges:**\n\n${caseInfo.charges}\n\n**Case Report:**\n\n${caseInfo.caseReport}`)
-        .setColor('#95A5A6')
-        .addFields(
-          {name:'Initiated By', value:`<@${caseInfo.initiator}>`, inline:true},
-          {name:'Case ID', value:caseId, inline:true}
-        )
-        .setFooter({text:'BCSO Utilities'})
-        .setTimestamp();
-
-      const cruForumChannelId = '1434380299604590623';
-      const cruForumChannel = await interaction.client.channels.fetch(cruForumChannelId);
-      
-      if(cruForumChannel) {
-        await cruForumChannel.threads.create({
-          name: caseId,
-          message: {embeds: [operationEmbed]}
-        });
-      }
-
-      await interaction.followUp({
-        content: `✅ Operation has been initiated and forwarded to the Critical Response Unit.`,
-        flags: MessageFlags.Ephemeral
-      });
-      return;
-    }
-
-    if(interaction.customId.startsWith('training_attend_')) {
     if(interaction.customId.startsWith('training_attend_')) {
       const messageId = interaction.customId.split('_')[2];
       
@@ -1548,7 +1497,90 @@ client.on('interactionCreate', async interaction=>{
 
 
 
+else if(cmd==='log-case'){
+  const allowedCaseRoles = [
+    '1405655436585205846', '1430515221553877032', '1405655436538941570',
+    '1405655436538941569', '1422724053692711074', '1434364895331090549',
+    '1434364727160475698', '1433281558512402553', '1422724672772116532'
+  ];
+  
+  if(!interaction.member.roles.cache.some(r => allowedCaseRoles.includes(r.id))){
+    return interaction.reply({content:'You do not have permission to log cases.', flags: MessageFlags.Ephemeral});
+  }
 
+  const suspects = interaction.options.getString('suspects');
+  const charges = interaction.options.getString('charges');
+  const caseReport = interaction.options.getString('case-report');
+  const caseId = generateCaseID();
+
+  const suspectsList = suspects.split(',').map(s => `* ${s.trim()}`).join('\n');
+  const chargesList = charges.split(',').map(c => `* ${c.trim()}`).join('\n');
+
+    const caseEmbed = new EmbedBuilder()
+    .setTitle('<:global:1434375502549876776> UOTF Case Buildup')
+    .setDescription(`> A new case buildup has been started by ${interaction.user}. View more information below.\n\n**Suspects Involved:**\n\n${suspectsList}\n\n**Charges:**\n\n${chargesList}\n\n**Case Report:**\n\n${caseReport}\n\n> Elaborate more on any additional information below, once this case is fully built up and ready to be carried out, select the "Initiate Operation" button below to forward this operation to the Critical Response Unit.`)
+    .setColor('#95A5A6')
+    .setFooter({text:'BCSO Utilities'})
+    .setTimestamp();
+
+    const initiateButton = new ButtonBuilder()
+    .setCustomId(`initiate_operation_${caseId}`)
+    .setLabel('Initiate Operation')
+    .setStyle(ButtonStyle.Primary);
+
+  const buttonRow = new ActionRowBuilder()
+    .addComponents(initiateButton);
+
+  // Send to the case buildup forum channel
+  const caseForumChannelId = '1434380765675782268';
+  const caseForumChannel = await interaction.client.channels.fetch(caseForumChannelId);
+  
+  if(!caseForumChannel) {
+    return interaction.reply({content:'Case forum channel not found.', flags: MessageFlags.Ephemeral});
+  }
+
+  // Create forum post
+  const forumThread = await caseForumChannel.threads.create({
+    name: `Case: ${caseId}`,
+    message: {
+      embeds: [caseEmbed],
+      components: [buttonRow]
+    }
+  });
+
+  // Store case data for the button handler
+  if(!global.caseData) global.caseData = {};
+  global.caseData[caseId] = {
+    suspects: suspectsList,
+    charges: chargesList,
+    caseReport: caseReport,
+    initiator: interaction.user.id,
+    threadId: forumThread.id
+  };
+
+  // Send log to oversight channel
+  const oversightChannelId = '1434380983498444800';
+  const oversightChannel = await interaction.client.channels.fetch(oversightChannelId);
+  
+  if(oversightChannel) {
+    const logEmbed = new EmbedBuilder()
+      .setTitle('Case Buildup Log')
+      .setDescription(`New Case buildup by ${interaction.user} at <t:${Math.floor(Date.now()/1000)}:F>. Please provide oversight of each new case and operation made in the UOTF.`)
+      .setColor('#95A5A6')
+      .addFields(
+        {name:'Case ID', value:caseId, inline:true},
+        {name:'Suspects', value:suspects, inline:false},
+        {name:'Charges', value:charges, inline:false}
+      )
+      .setFooter({text:'BCSO Utilities'})
+      .setTimestamp();
+    
+    await oversightChannel.send({embeds:[logEmbed]});
+  }
+
+  await interaction.reply({content:`Case ${caseId} logged successfully and posted to the forum.`, flags: MessageFlags.Ephemeral});
+}
+      
 
 
         const wipeEmbed = new EmbedBuilder()
@@ -1582,6 +1614,57 @@ client.on('interactionCreate', async interaction=>{
           }); 
         }catch{}
 
+      if(interaction.customId.startsWith('initiate_operation_')) {
+  const caseId = interaction.customId.split('_')[2];
+  
+  if(!global.caseData || !global.caseData[caseId]) {
+    return interaction.reply({content:'Case data not found.', flags: MessageFlags.Ephemeral});
+  }
+
+  const caseInfo = global.caseData[caseId];
+  
+  // Disable the button
+  const disabledButton = new ButtonBuilder()
+    .setCustomId(`initiate_operation_${caseId}`)
+    .setLabel('Operation Initiated')
+    .setStyle(ButtonStyle.Success)
+    .setDisabled(true);
+
+  const disabledRow = new ActionRowBuilder()
+    .addComponents(disabledButton);
+
+  await interaction.update({components: [disabledRow]});
+
+  // Create embed for CRU operations channel
+  const operationEmbed = new EmbedBuilder()
+    .setTitle('<:sword:1434375302355619930> UOTF Case Report')
+    .setDescription(`A new case has been built up. Operators are now prompted to carry out this operation with a Team Leader or CRU Commander. Please stage and build up your plans for this operation to commence down below. React to this post if you are willing to attend this operation.\n\n**Suspects Involved:**\n\n${caseInfo.suspects}\n\n**Charges:**\n\n${caseInfo.charges}\n\n**Case Report:**\n\n${caseInfo.caseReport}`)
+    .setColor('#95A5A6')
+    .addFields(
+      {name:'Initiated By', value:`<@${caseInfo.initiator}>`, inline:true},
+      {name:'Case ID', value:caseId, inline:true}
+    )
+    .setFooter({text:'BCSO Utilities'})
+    .setTimestamp();
+
+  // Send to CRU operations forum
+  const cruForumChannelId = '1434380299604590623';
+  const cruForumChannel = await interaction.client.channels.fetch(cruForumChannelId);
+  
+  if(cruForumChannel) {
+    await cruForumChannel.threads.create({
+      name: caseId,
+      message: {
+        embeds: [operationEmbed]
+      }
+    });
+  }
+
+        await interaction.followUp({
+    content: `✅ Operation has been initiated and forwarded to the Critical Response Unit.`,
+    flags: MessageFlags.Ephemeral
+  });
+}
 
 
 
@@ -3755,90 +3838,7 @@ else if(cmd==='statistics'){
       await interaction.reply({content:'Deployment ended successfully!', flags: MessageFlags.Ephemeral});
     }
 
-else if(cmd==='deployment-end'){
-      // ... existing deployment-end code ...
-      await interaction.reply({content:'Deployment ended successfully!', flags: MessageFlags.Ephemeral});
-    }
 
-    else if(cmd==='log-case'){
-      const allowedCaseRoles = [
-        '1405655436585205846', '1430515221553877032', '1405655436538941570',
-        '1405655436538941569', '1422724053692711074', '1434364895331090549',
-        '1434364727160475698', '1433281558512402553', '1422724672772116532'
-      ];
-      
-      if(!interaction.member.roles.cache.some(r => allowedCaseRoles.includes(r.id))){
-        return interaction.reply({content:'You do not have permission to log cases.', flags: MessageFlags.Ephemeral});
-      }
-
-      const suspects = interaction.options.getString('suspects');
-      const charges = interaction.options.getString('charges');
-      const caseReport = interaction.options.getString('case-report');
-      const caseId = generateCaseID();
-
-      const suspectsList = suspects.split(',').map(s => `* ${s.trim()}`).join('\n');
-      const chargesList = charges.split(',').map(c => `* ${c.trim()}`).join('\n');
-
-      const caseEmbed = new EmbedBuilder()
-        .setTitle('<:global:1434375502549876776> UOTF Case Buildup')
-        .setDescription(`> A new case buildup has been started by ${interaction.user}. View more information below.\n\n**Suspects Involved:**\n\n${suspectsList}\n\n**Charges:**\n\n${chargesList}\n\n**Case Report:**\n\n${caseReport}\n\n> Elaborate more on any additional information below, once this case is fully built up and ready to be carried out, select the "Initiate Operation" button below to forward this operation to the Critical Response Unit.`)
-        .setColor('#95A5A6')
-        .setFooter({text:'BCSO Utilities'})
-        .setTimestamp();
-
-      const initiateButton = new ButtonBuilder()
-        .setCustomId(`initiate_operation_${caseId}`)
-        .setLabel('Initiate Operation')
-        .setStyle(ButtonStyle.Primary);
-
-      const buttonRow = new ActionRowBuilder()
-        .addComponents(initiateButton);
-
-      const caseForumChannelId = '1434380765675782268';
-      const caseForumChannel = await interaction.client.channels.fetch(caseForumChannelId);
-      
-      if(!caseForumChannel) {
-        return interaction.reply({content:'Case forum channel not found.', flags: MessageFlags.Ephemeral});
-      }
-
-      const forumThread = await caseForumChannel.threads.create({
-        name: `Case: ${caseId}`,
-        message: {
-          embeds: [caseEmbed],
-          components: [buttonRow]
-        }
-      });
-
-      if(!global.caseData) global.caseData = {};
-      global.caseData[caseId] = {
-        suspects: suspectsList,
-        charges: chargesList,
-        caseReport: caseReport,
-        initiator: interaction.user.id,
-        threadId: forumThread.id
-      };
-
-      const oversightChannelId = '1434380983498444800';
-      const oversightChannel = await interaction.client.channels.fetch(oversightChannelId);
-      
-      if(oversightChannel) {
-        const logEmbed = new EmbedBuilder()
-          .setTitle('Case Buildup Log')
-          .setDescription(`New Case buildup by ${interaction.user} at <t:${Math.floor(Date.now()/1000)}:F>. Please provide oversight of each new case and operation made in the UOTF.`)
-          .setColor('#95A5A6')
-          .addFields(
-            {name:'Case ID', value:caseId, inline:true},
-            {name:'Suspects', value:suspects, inline:false},
-            {name:'Charges', value:charges, inline:false}
-          )
-          .setFooter({text:'BCSO Utilities'})
-          .setTimestamp();
-        
-        await oversightChannel.send({embeds:[logEmbed]});
-      }
-
-      await interaction.reply({content:`Case ${caseId} logged successfully and posted to the forum.`, flags: MessageFlags.Ephemeral});
-    }
 
 
 
@@ -3851,25 +3851,24 @@ else if(cmd==='deployment-end'){
       await interaction.reply({content:'An error occurred while executing this command.', flags: MessageFlags.Ephemeral});
     }
   }
-};
-
-
-
-
-
-
-
-
-// ====== EXPRESS WEB SERVER ======
-const app = express();
-app.get('/', (req, res) => res.send('Bot is alive!'));
-app.listen(3000, () => console.log('Web server running on port 3000'));
-
-// ====== LOGIN TO DISCORD ======
-client.login(token).catch(err => {
-  console.error('❌ Failed to login to Discord:');
-  console.error('Error:', err.message);
-  console.error('Token exists:', !!token);
-  console.error('Token format valid:', token && token.length > 50);
-  process.exit(1);
 });
+
+
+
+
+
+
+
+
+const app = express();
+app.get('/',(req,res)=>res.send('Bot is alive!'));
+app.listen(3000,()=>console.log('Web server running on port 3000'));
+
+
+
+
+
+
+
+
+client.login(token);
