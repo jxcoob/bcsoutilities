@@ -1135,7 +1135,7 @@ client.on('interactionCreate', async interaction=>{
       // ADD COMPLETION BUTTON TO OPERATIONS CHANNEL
       const completeButton = new ButtonBuilder()
         .setCustomId(`complete_operation_${caseId}`)
-        .setLabel('Complete Operation?')
+        .setLabel('Complete Operation')
         .setStyle(ButtonStyle.Primary);
 
       const buttonRow = new ActionRowBuilder()
