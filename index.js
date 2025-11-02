@@ -734,12 +734,12 @@ new SlashCommandBuilder()
     .setDefaultMemberPermissions(null)
     .toJSON(),
 
-  new SlashCommandBuilder()
+new SlashCommandBuilder()
     .setName('log-case')
     .setDescription('Log a new UOTF case buildup')
     .setDefaultMemberPermissions(null)
-    .addStringOption(opt => opt.setName('suspects').setDescription('List all the suspects involved in the case, separate each suspect with a comma.').setRequired(true))
-    .addStringOption(opt => opt.setName('charges').setDescription('List all the charges taken against the suspects involved in the case, separate each charge with a comma.').setRequired(true))
+    .addStringOption(opt => opt.setName('suspects').setDescription('List all suspects (separate each with a comma)').setRequired(true))
+    .addStringOption(opt => opt.setName('charges').setDescription('List all charges (separate each with a comma)').setRequired(true))
     .addStringOption(opt => opt.setName('case-report').setDescription('Detailed case report').setRequired(true))
     .toJSON(),
 ];
