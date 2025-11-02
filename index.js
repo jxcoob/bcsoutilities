@@ -1198,7 +1198,59 @@ client.on('interactionCreate', async interaction=>{
         } catch(err) {
           console.error('Error updating other channel:', err);
         }
+            if(interaction.customId.startsWith('initiate_operation_')) {
+  const caseId = interaction.customId.split('_')[2];
+  
+  if(!global.caseData || !global.caseData[caseId]) {
+    return interaction.reply({content:'Case data not found.', flags: MessageFlags.Ephemeral});
+  }
+
+  const caseInfo = global.caseData[caseId];
+  
+  // Disable the button
+  const disabledButton = new ButtonBuilder()
+    .setCustomId(`initiate_operation_${caseId}`)
+    .setLabel('Operation Initiated')
+    .setStyle(ButtonStyle.Success)
+    .setDisabled(true);
+
+  const disabledRow = new ActionRowBuilder()
+    .addComponents(disabledButton);
+
+  await interaction.update({components: [disabledRow]});
+
+  // Create embed for CRU operations channel
+  const operationEmbed = new EmbedBuilder()
+    .setTitle('<:sword:1434375302355619930> UOTF Case Report')
+    .setDescription(`A new case has been built up. Operators are now prompted to carry out this operation with a Team Leader or CRU Commander. Please stage and build up your plans for this operation to commence down below. React to this post if you are willing to attend this operation.\n\n**Suspects Involved:**\n\n${caseInfo.suspects}\n\n**Charges:**\n\n${caseInfo.charges}\n\n**Case Report:**\n\n${caseInfo.caseReport}`)
+    .setColor('#95A5A6')
+    .addFields(
+      {name:'Initiated By', value:`<@${caseInfo.initiator}>`, inline:true},
+      {name:'Case ID', value:caseId, inline:true}
+    )
+    .setFooter({text:'BCSO Utilities'})
+    .setTimestamp();
+
+  // Send to CRU operations forum
+  const cruForumChannelId = '1434380299604590623';
+  const cruForumChannel = await interaction.client.channels.fetch(cruForumChannelId);
+  
+  if(cruForumChannel) {
+    await cruForumChannel.threads.create({
+      name: caseId,
+      message: {
+        embeds: [operationEmbed]
       }
+    });
+  }
+
+        await interaction.followUp({
+    content: `✅ Operation has been initiated and forwarded to the Critical Response Unit.`,
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+}
       return;
     }
   }
@@ -1639,57 +1691,7 @@ else if(cmd==='log-case'){
   await interaction.reply({content:`Case ${caseId} logged successfully and posted to the forum.`, flags: MessageFlags.Ephemeral});
 }
 
-      if(interaction.customId.startsWith('initiate_operation_')) {
-  const caseId = interaction.customId.split('_')[2];
-  
-  if(!global.caseData || !global.caseData[caseId]) {
-    return interaction.reply({content:'Case data not found.', flags: MessageFlags.Ephemeral});
-  }
 
-  const caseInfo = global.caseData[caseId];
-  
-  // Disable the button
-  const disabledButton = new ButtonBuilder()
-    .setCustomId(`initiate_operation_${caseId}`)
-    .setLabel('Operation Initiated')
-    .setStyle(ButtonStyle.Success)
-    .setDisabled(true);
-
-  const disabledRow = new ActionRowBuilder()
-    .addComponents(disabledButton);
-
-  await interaction.update({components: [disabledRow]});
-
-  // Create embed for CRU operations channel
-  const operationEmbed = new EmbedBuilder()
-    .setTitle('<:sword:1434375302355619930> UOTF Case Report')
-    .setDescription(`A new case has been built up. Operators are now prompted to carry out this operation with a Team Leader or CRU Commander. Please stage and build up your plans for this operation to commence down below. React to this post if you are willing to attend this operation.\n\n**Suspects Involved:**\n\n${caseInfo.suspects}\n\n**Charges:**\n\n${caseInfo.charges}\n\n**Case Report:**\n\n${caseInfo.caseReport}`)
-    .setColor('#95A5A6')
-    .addFields(
-      {name:'Initiated By', value:`<@${caseInfo.initiator}>`, inline:true},
-      {name:'Case ID', value:caseId, inline:true}
-    )
-    .setFooter({text:'BCSO Utilities'})
-    .setTimestamp();
-
-  // Send to CRU operations forum
-  const cruForumChannelId = '1434380299604590623';
-  const cruForumChannel = await interaction.client.channels.fetch(cruForumChannelId);
-  
-  if(cruForumChannel) {
-    await cruForumChannel.threads.create({
-      name: caseId,
-      message: {
-        embeds: [operationEmbed]
-      }
-    });
-  }
-
-        await interaction.followUp({
-    content: `✅ Operation has been initiated and forwarded to the Critical Response Unit.`,
-    flags: MessageFlags.Ephemeral
-  });
-}
 
 
 
