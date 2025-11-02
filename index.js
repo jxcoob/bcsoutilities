@@ -679,7 +679,6 @@ new SlashCommandBuilder()
         {name: 'Distinguished Service Award', value: 'Distinguished Service Award'},
         {name: 'Lifesaving Award', value: 'Lifesaving Award'},
         {name: 'Meritorious Activity Award', value: 'Meritorious Activity Award'},
-        {name: 'Advanced Marksmanship Certification', value: 'Advanced Marksmanship Certification'}
       )
     )
     .toJSON(),
