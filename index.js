@@ -1245,14 +1245,6 @@ client.on('interactionCreate', async interaction=>{
 
 
 
-      if(sub==='execute' || sub==='revoke' || sub==='list'){
-        const allowedRoles = ['1405655436585205846', '1405655436585205841'];
-        const hasPermission = interaction.member.roles.cache.some(r => allowedRoles.includes(r.id));
-        
-        if(!hasPermission) {
-          return interaction.reply({content:'You do not have permission to use this command.', flags: MessageFlags.Ephemeral});
-        }
-      }
       
       if(sub==='wipe'){
         const allowedRoles = ['1405655436585205846'];
@@ -1270,12 +1262,48 @@ client.on('interactionCreate', async interaction=>{
 
 
 
-      if(sub==='execute'){
-        const targetUser = interaction.options.getUser('user');
-        const reason = interaction.options.getString('reason');
-        const type = interaction.options.getString('type');
-        const division = interaction.options.getString('division');
-        const evidence = interaction.options.getAttachment('evidence');
+if(sub==='execute'){
+  const targetUser = interaction.options.getUser('user');
+  const reason = interaction.options.getString('reason');
+  const type = interaction.options.getString('type');
+  const division = interaction.options.getString('division');
+  const evidence = interaction.options.getAttachment('evidence');
+
+  // Permission check for execute subcommand
+  const allowedRoles = ['1405655436585205846', '1405655436585205843']; // Can issue any type
+  const activityNoticeRoles = ['1405655436576948248']; // Can only issue Activity Notices
+  const verbalWarningRoles = ['1405655436585205842']; // Can issue Activity Notice, Verbal Warning, and Warning
+  
+  const hasFullPermission = interaction.member.roles.cache.some(r => allowedRoles.includes(r.id));
+  const hasActivityNoticePermission = interaction.member.roles.cache.some(r => activityNoticeRoles.includes(r.id));
+  const hasVerbalWarningPermission = interaction.member.roles.cache.some(r => verbalWarningRoles.includes(r.id));
+  
+  // Check permissions based on role and infraction type
+  const allowedTypes = ['Activity Notice', 'Verbal Warning', 'Warning'];
+  
+  // If they have verbal warning role but not full permission, restrict to allowed types
+  if(hasVerbalWarningPermission && !hasFullPermission && !allowedTypes.includes(type)) {
+    return interaction.reply({
+      content:'You only have permission to issue Activity Notices, Verbal Warnings, and Warnings.', 
+      flags: MessageFlags.Ephemeral
+    });
+  }
+  
+  // If they have activity notice role but not full permission, they can only use Activity Notice
+  if(hasActivityNoticePermission && !hasFullPermission && !hasVerbalWarningPermission && type !== 'Activity Notice') {
+    return interaction.reply({
+      content:'You only have permission to issue Activity Notices.', 
+      flags: MessageFlags.Ephemeral
+    });
+  }
+  
+  // If they don't have any permission at all
+  if(!hasFullPermission && !hasActivityNoticePermission && !hasVerbalWarningPermission) {
+    return interaction.reply({
+      content:'You do not have permission to use this command.', 
+      flags: MessageFlags.Ephemeral
+    });
+  }
 
 
 
