@@ -3820,14 +3820,11 @@ else if(cmd==='statistics'){
 
 
 
-    else if(cmd==='deployment-end'){
+else if(cmd==='deployment-end'){
       const allowedDeploymentRoles = ['1405655436538941570', '1405655436585205846', '1405655436538941569'];
       if(!interaction.member.roles.cache.some(r => allowedDeploymentRoles.includes(r.id))){
         return interaction.reply({content:'You do not have permission to use this command.', flags: MessageFlags.Ephemeral});
       }
-
-
-
 
       const embed = new EmbedBuilder()
         .setTitle('<:checkmark:1428897510037913736> CRU Deployment - Ended')
@@ -3837,13 +3834,6 @@ else if(cmd==='statistics'){
         .setFooter({text:`Concluded by ${interaction.user.tag}`})
         .setTimestamp();
 
-
-
-
-
-
-
-
       const deploymentChannelId = '1405655438787346432';
       const deploymentChannel = await interaction.client.channels.fetch(deploymentChannelId);
       
@@ -3851,21 +3841,7 @@ else if(cmd==='statistics'){
         return interaction.reply({content:'Deployment channel not found.', flags: MessageFlags.Ephemeral});
       }
 
-
-
-
-
-
-
-
       await deploymentChannel.send({embeds: [embed]});
-
-
-
-
-
-
-
 
       await interaction.reply({content:'Deployment ended successfully!', flags: MessageFlags.Ephemeral});
     }
@@ -3982,29 +3958,11 @@ else if(cmd==='statistics'){
   }
 });
 
-
-
-
-
-
-  }catch(err){
-    console.error(err);
-    if(!interaction.replied && !interaction.deferred){
-      await interaction.reply({content:'An error occurred while executing this command.', flags: MessageFlags.Ephemeral});
-    }
-  }
-});
-
-
-
-
-
-
-
-
 const app = express();
 app.get('/',(req,res)=>res.send('Bot is alive!'));
 app.listen(3000,()=>console.log('Web server running on port 3000'));
+
+client.login(token);
 
 
 
