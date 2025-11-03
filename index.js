@@ -812,95 +812,90 @@ new SlashCommandBuilder()
   .toJSON(),
 
 new SlashCommandBuilder()
-  .setName('note')
-  .setDescription('Manage user notes')
-  .setDefaultMemberPermissions(null)
-  .addSubcommand(sub =>
-    sub.setName('add')
-      .setDescription('Add a note to a user')
-      .addUserOption(opt => opt.setName('user').setDescription('User to add note to').setRequired(true))
-      .addStringOption(opt => opt.setName('note').setDescription('Note content').setRequired(true))
-  )
-  .addSubcommand(sub =>
-    sub.setName('remove')
-      .setDescription('Remove a note from a user')
-      .addUserOption(opt => opt.setName('user').setDescription('User to remove note from').setRequired(true))
-      .addStringOption(opt => opt.setName('id').setDescription('Note ID to remove').setRequired(true))
-  )
-  .addSubcommand(sub =>
-    sub.setName('list')
-      .setDescription('List all notes for a user')
-      .addUserOption(opt => opt.setName('user').setDescription('User to view notes for').setRequired(true))
-  )
-  .toJSON(),
+    .setName('note')
+    .setDescription('Manage user notes')
+    .setDefaultMemberPermissions(null)
+    .addSubcommand(sub =>
+      sub.setName('add')
+        .setDescription('Add a note to a user')
+        .addUserOption(opt => opt.setName('user').setDescription('User to add note to').setRequired(true))
+        .addStringOption(opt => opt.setName('note').setDescription('Note content').setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub.setName('remove')
+        .setDescription('Remove a note from a user')
+        .addUserOption(opt => opt.setName('user').setDescription('User to remove note from').setRequired(true))
+        .addStringOption(opt => opt.setName('id').setDescription('Note ID to remove').setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub.setName('list')
+        .setDescription('List all notes for a user')
+        .addUserOption(opt => opt.setName('user').setDescription('User to view notes for').setRequired(true))
+    )
+    .toJSON(),
   
+  new SlashCommandBuilder()
+    .setName('shift')
+    .setDescription('Manage deputy shifts')
+    .setDefaultMemberPermissions(null)
+    .addSubcommand(sub =>
+      sub.setName('manage')
+        .setDescription('Start or end your shift')
+        .addStringOption(opt => opt.setName('type').setDescription('Shift type').setRequired(true)
+          .addChoices(
+            {name: 'Patrol', value: 'Patrol'},
+            {name: 'CRU', value: 'CRU'},
+            {name: 'MCU', value: 'MCU'},
+            {name: 'VITF', value: 'VITF'},
+            {name: 'Corrections', value: 'Corrections'}
+          )
+        )
+    )
+    .addSubcommand(sub =>
+      sub.setName('leaderboard')
+        .setDescription('View shift time leaderboard')
+        .addStringOption(opt => opt.setName('type').setDescription('Filter by shift type').setRequired(false)
+          .addChoices(
+            {name: 'Patrol', value: 'Patrol'},
+            {name: 'CRU', value: 'CRU'},
+            {name: 'MCU', value: 'MCU'},
+            {name: 'VITF', value: 'VITF'},
+            {name: 'Corrections', value: 'Corrections'}
+          )
+        )
+        .addStringOption(opt => opt.setName('timeframe').setDescription('Timeframe for leaderboard').setRequired(false)
+          .addChoices(
+            {name: 'All Time', value: 'all'},
+            {name: 'Last 7 Days', value: '7d'},
+            {name: 'Last 30 Days', value: '30d'},
+            {name: 'This Month', value: 'month'}
+          )
+        )
+    )
+    .addSubcommand(sub =>
+      sub.setName('online')
+        .setDescription('View who is currently on shift')
+    )
+    .addSubcommand(sub =>
+      sub.setName('admin')
+        .setDescription('Admin: Manage another user\'s shift')
+        .addUserOption(opt => opt.setName('user').setDescription('User to manage').setRequired(true))
+    )
+    .addSubcommand(sub =>
+      sub.setName('activity')
+        .setDescription('View activity list for a division')
+        .addStringOption(opt => opt.setName('type').setDescription('Division type').setRequired(true)
+          .addChoices(
+            {name: 'Patrol', value: 'Patrol'},
+            {name: 'CRU', value: 'CRU'},
+            {name: 'MCU', value: 'MCU'},
+            {name: 'VITF', value: 'VITF'},
+            {name: 'Corrections', value: 'Corrections'}
+          )
+        )
+    )
+    .toJSON()
 ];
-
-
-new SlashCommandBuilder()
-  .setName('shift')
-  .setDescription('Manage deputy shifts')
-  .setDefaultMemberPermissions(null)
-  .addSubcommand(sub =>
-    sub.setName('manage')
-      .setDescription('Start or end your shift')
-      .addStringOption(opt => opt.setName('type').setDescription('Shift type').setRequired(true)
-        .addChoices(
-          {name: 'Patrol', value: 'Patrol'},
-          {name: 'CRU', value: 'CRU'},
-          {name: 'MCU', value: 'MCU'},
-          {name: 'VITF', value: 'VITF'},
-          {name: 'Corrections', value: 'Corrections'}
-        )
-      )
-  )
-  .addSubcommand(sub =>
-    sub.setName('leaderboard')
-      .setDescription('View shift time leaderboard')
-      .addStringOption(opt => opt.setName('type').setDescription('Filter by shift type').setRequired(false)
-        .addChoices(
-          {name: 'Patrol', value: 'Patrol'},
-          {name: 'CRU', value: 'CRU'},
-          {name: 'MCU', value: 'MCU'},
-          {name: 'VITF', value: 'VITF'},
-          {name: 'Corrections', value: 'Corrections'}
-        )
-      )
-      .addStringOption(opt => opt.setName('timeframe').setDescription('Timeframe for leaderboard').setRequired(false)
-        .addChoices(
-          {name: 'All Time', value: 'all'},
-          {name: 'Last 7 Days', value: '7d'},
-          {name: 'Last 30 Days', value: '30d'},
-          {name: 'This Month', value: 'month'}
-        )
-      )
-  )
-  .addSubcommand(sub =>
-    sub.setName('online')
-      .setDescription('View who is currently on shift')
-  )
-  .addSubcommand(sub =>
-    sub.setName('admin')
-      .setDescription('Admin: Manage another user\'s shift')
-      .addUserOption(opt => opt.setName('user').setDescription('User to manage').setRequired(true))
-  )
-  .addSubcommand(sub =>
-    sub.setName('activity')
-      .setDescription('View activity list for a division')
-      .addStringOption(opt => opt.setName('type').setDescription('Division type').setRequired(true)
-        .addChoices(
-          {name: 'Patrol', value: 'Patrol'},
-          {name: 'CRU', value: 'CRU'},
-          {name: 'MCU', value: 'MCU'},
-          {name: 'VITF', value: 'VITF'},
-          {name: 'Corrections', value: 'Corrections'}
-        )
-      )
-  )
-  .toJSON(),
-  
-  ];
-
 
 
 
