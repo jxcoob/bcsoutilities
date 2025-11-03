@@ -4542,7 +4542,7 @@ else if(cmd==='shift'){
         }
 
         const embed = new EmbedBuilder()
-          .setTitle('🏆 Shift Time Leaderboard')
+          .setTitle('Shift Time Leaderboard')
           .setColor('#F1C40F')
           .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
           .setFooter({text:'BCSO Utilities'})
@@ -4603,7 +4603,7 @@ else if(cmd==='shift'){
         }
 
         const embed = new EmbedBuilder()
-          .setTitle('👮 Deputies Currently On Shift')
+          .setTitle('Deputies Currently On Shift')
           .setColor('#3498DB')
           .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
           .setDescription(`**Total Online:** ${activeShifts.length}`)
@@ -4751,11 +4751,11 @@ else if(cmd==='shift'){
 
         if(onlineMembers.length > 0) {
           const onlineList = onlineMembers.map(m => 
-            `🟢 ${m.user} - ${formatDuration(m.shiftDuration)} (Total: ${formatDuration(m.totalTime)})`
+            `${m.user} - ${formatDuration(m.shiftDuration)} (Total: ${formatDuration(m.totalTime)})`
           ).join('\n');
           
           embed.addFields({
-            name:'🟢 Currently On Shift',
+            name:'Currently On Shift',
             value:onlineList.length > 1024 ? onlineList.substring(0, 1021) + '...' : onlineList,
             inline:false
           });
@@ -4763,7 +4763,7 @@ else if(cmd==='shift'){
 
         if(offlineMembers.length > 0) {
           const offlineList = offlineMembers.slice(0, 15).map(m => 
-            `⚪ ${m.user} - Total: ${formatDuration(m.totalTime)}`
+            `${m.user} - Total: ${formatDuration(m.totalTime)}`
           ).join('\n');
           
           embed.addFields({
@@ -4780,7 +4780,7 @@ else if(cmd==='shift'){
 await interaction.editReply({embeds:[embed]});
       }  // Close 'activity' subcommand
     }  // Close 'shift' command
-  }  // Close try block - THIS WAS MISSING!
+  }  // Close try block
   catch(err){
     console.error(err);
     if(!interaction.replied && !interaction.deferred){
