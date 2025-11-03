@@ -110,7 +110,7 @@ const permissionsPath = path.join(__dirname, 'permissions.json');
 const reviewsPath = path.join(__dirname, 'reviews.json');
 const logsPath = path.join(__dirname, 'logs.json');
 const retiredUsersPath = path.join(__dirname, 'retired_users.json');
-
+const notesPath = path.join(__dirname, 'notes.json');
 
 
 
@@ -319,6 +319,29 @@ function generateWarrantID() {
 function generateReportID() {
   reportCounter++;
   return `#R${String(reportCounter).padStart(5, '0')}`;
+}
+
+function loadNotes() {
+  if(fs.existsSync(notesPath)) return JSON.parse(fs.readFileSync(notesPath));
+  return {notes:[]};
+}
+
+function saveNotes(notesDB) {
+  fs.writeFileSync(notesPath, JSON.stringify(notesDB, null, 2));
+}
+
+function generateNoteID(notesDB) {
+  const ids = notesDB.notes.map(n => parseInt(n.id.substring(2)));
+  const maxId = ids.length > 0 ? Math.max(...ids) : 0;
+  return `NT${maxId + 1}`;
+}
+
+function loadRetiredUsers() {
+  if(fs.existsSync(retiredUsersPath)) {
+    const data = JSON.parse(fs.readFileSync(retiredUsersPath));
+    return new Map(Object.entries(data));
+  }
+  return new Map();
 }
 
 function loadRetiredUsers() {
@@ -742,6 +765,29 @@ new SlashCommandBuilder()
   .addStringOption(opt => opt.setName('suspects').setDescription('List all the suspects involved in the case, separate each suspect with a comma.').setRequired(true))
   .addStringOption(opt => opt.setName('charges').setDescription('List all all related charges, separate each charge with a comma.').setRequired(true))
   .addStringOption(opt => opt.setName('case-report').setDescription('Detailed case report').setRequired(true))
+  .toJSON(),
+
+new SlashCommandBuilder()
+  .setName('note')
+  .setDescription('Manage user notes')
+  .setDefaultMemberPermissions(null)
+  .addSubcommand(sub =>
+    sub.setName('add')
+      .setDescription('Add a note to a user')
+      .addUserOption(opt => opt.setName('user').setDescription('User to add note to').setRequired(true))
+      .addStringOption(opt => opt.setName('note').setDescription('Note content').setRequired(true))
+  )
+  .addSubcommand(sub =>
+    sub.setName('remove')
+      .setDescription('Remove a note from a user')
+      .addUserOption(opt => opt.setName('user').setDescription('User to remove note from').setRequired(true))
+      .addStringOption(opt => opt.setName('id').setDescription('Note ID to remove').setRequired(true))
+  )
+  .addSubcommand(sub =>
+    sub.setName('list')
+      .setDescription('List all notes for a user')
+      .addUserOption(opt => opt.setName('user').setDescription('User to view notes for').setRequired(true))
+  )
   .toJSON(),
   
 ];
@@ -3824,7 +3870,117 @@ else if(cmd==='statistics'){
       await interaction.reply({content:'Deployment ended successfully!', flags: MessageFlags.Ephemeral});
     }
 
+    else if(cmd==='note'){
+      const allowedNoteRoles = ['1405655436576948247', '1405655436585205841', '1405655436585205846'];
+      if(!interaction.member.roles.cache.some(r => allowedNoteRoles.includes(r.id))){
+        return interaction.reply({content:'You do not have permission to use this command.', flags: MessageFlags.Ephemeral});
+      }
 
+      const sub = interaction.options.getSubcommand();
+      const notesDB = loadNotes();
+
+      if(sub==='add'){
+        const targetUser = interaction.options.getUser('user');
+        const noteContent = interaction.options.getString('note');
+        const noteId = generateNoteID(notesDB);
+
+        const newNote = {
+          id: noteId,
+          userId: targetUser.id,
+          content: noteContent,
+          addedBy: interaction.user.id,
+          timestamp: new Date().toISOString()
+        };
+
+        notesDB.notes.push(newNote);
+        saveNotes(notesDB);
+
+        const embed = new EmbedBuilder()
+          .setTitle('Note Added')
+          .setColor('#95A5A6')
+          .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+          .addFields(
+            {name:'Note ID',value:noteId,inline:true},
+            {name:'User',value:`${targetUser}`,inline:true},
+            {name:'Added By',value:`<@${interaction.user.id}>`,inline:true},
+            {name:'Note',value:noteContent}
+          )
+          .setFooter({text:'BCSO Utilities'})
+          .setTimestamp();
+
+        const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+        if(logChannel) await logChannel.send({embeds:[embed]});
+
+        await interaction.reply({content:`Note ${noteId} successfully added to ${targetUser.tag}.`, flags: MessageFlags.Ephemeral});
+      }
+
+      else if(sub==='remove'){
+        const targetUser = interaction.options.getUser('user');
+        const noteId = interaction.options.getString('id').toUpperCase();
+
+        const noteIndex = notesDB.notes.findIndex(n => n.id === noteId && n.userId === targetUser.id);
+        
+        if(noteIndex === -1){
+          return interaction.reply({content:`No note found with ID ${noteId} for ${targetUser.tag}.`, flags: MessageFlags.Ephemeral});
+        }
+
+        const note = notesDB.notes[noteIndex];
+        notesDB.notes.splice(noteIndex, 1);
+        saveNotes(notesDB);
+
+        const embed = new EmbedBuilder()
+          .setTitle('Note Removed')
+          .setColor('#95A5A6')
+          .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+          .addFields(
+            {name:'Note ID',value:noteId,inline:true},
+            {name:'User',value:`${targetUser}`,inline:true},
+            {name:'Removed By',value:`<@${interaction.user.id}>`,inline:true},
+            {name:'Original Note',value:note.content}
+          )
+          .setFooter({text:'BCSO Utilities'})
+          .setTimestamp();
+
+        const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+        if(logChannel) await logChannel.send({embeds:[embed]});
+
+        await interaction.reply({content:`Note ${noteId} successfully removed from ${targetUser.tag}.`, flags: MessageFlags.Ephemeral});
+      }
+
+      else if(sub==='list'){
+        const targetUser = interaction.options.getUser('user');
+        const userNotes = notesDB.notes.filter(n => n.userId === targetUser.id);
+
+        if(userNotes.length === 0){
+          return interaction.reply({content:`${targetUser.tag} has no notes.`, flags: MessageFlags.Ephemeral});
+        }
+
+        const embed = new EmbedBuilder()
+          .setTitle(`Notes for ${targetUser.tag}`)
+          .setColor('#95A5A6')
+          .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+          .setFooter({text:'BCSO Utilities'})
+          .setTimestamp();
+
+        for(const note of userNotes){
+          embed.addFields({
+            name:`${note.id}`,
+            value:`**Note:** ${note.content}\n**Added By:** <@${note.addedBy}>\n**Date:** <t:${Math.floor(new Date(note.timestamp).getTime()/1000)}:f>`,
+            inline:false
+          });
+        }
+
+        await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
+      }
+    }
+
+  }catch(err){
+    console.error(err);
+    if(!interaction.replied && !interaction.deferred){
+      await interaction.reply({content:'An error occurred while executing this command.', flags: MessageFlags.Ephemeral});
+    }
+  }
+});
 
 
 
