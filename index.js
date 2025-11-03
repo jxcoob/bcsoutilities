@@ -1375,7 +1375,7 @@ if(sub==='execute'){
 
 
 
-        try{ await targetUser.send({embeds:[dmEmbed]}); }catch{}
+        try{ await targetUser.send({embeds:[dmEmbed]}); }catch(e){}
 
 
 
@@ -1473,7 +1473,7 @@ if(sub==='execute'){
 
 
 
-        try{ await targetUser.send({embeds:[revokeEmbed]}); }catch{}
+        try{ await targetUser.send({embeds:[revokeEmbed]}); }catch(e){}
 
 
 
@@ -1594,7 +1594,7 @@ if(sub==='execute'){
               .setFooter({text:'BCSO Utilities'})
               .setTimestamp()]
           }); 
-        }catch{}
+        }catch(e){}
 
 
 
@@ -2096,7 +2096,7 @@ else if(cmd==='log-case'){
 
       try{ 
         await targetUser.send({embeds:[embed]}); 
-      }catch{}
+      }catch(e){}
 
 
 
@@ -2199,7 +2199,7 @@ else if(cmd==='log-case'){
 
       try{ 
         await user.send({embeds:[embed]}); 
-      }catch{}
+      }catch(e){}
 
 
 
@@ -2321,7 +2321,7 @@ else if(cmd==='log-case'){
 
 
 
-        try{ await targetUser.send({embeds:[dmEmbed]}); }catch{}
+        try{ await targetUser.send({embeds:[dmEmbed]}); }catch(e){}
 
 
 
