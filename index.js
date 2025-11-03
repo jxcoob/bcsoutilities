@@ -111,6 +111,7 @@ const reviewsPath = path.join(__dirname, 'reviews.json');
 const logsPath = path.join(__dirname, 'logs.json');
 const retiredUsersPath = path.join(__dirname, 'retired_users.json');
 const notesPath = path.join(__dirname, 'notes.json');
+const shiftsPath = path.join(__dirname, 'shifts.json');
 
 
 
@@ -357,6 +358,49 @@ function saveRetiredUsers(retiredUsersMap) {
   fs.writeFileSync(retiredUsersPath, JSON.stringify(obj, null, 2));
 }
 
+function loadShifts() {
+  if(fs.existsSync(shiftsPath)) return JSON.parse(fs.readFileSync(shiftsPath));
+  return {activeShifts: {}, completedShifts: []};
+}
+
+function saveShifts(shiftsDB) {
+  fs.writeFileSync(shiftsPath, JSON.stringify(shiftsDB, null, 2));
+}
+
+function generateShiftID(shiftsDB) {
+  const ids = shiftsDB.completedShifts.map(s => parseInt(s.id.substring(2)));
+  const maxId = ids.length > 0 ? Math.max(...ids) : 0;
+  return `SH${maxId + 1}`;
+}
+
+function calculateShiftDuration(startTime, endTime) {
+  const duration = endTime - startTime;
+  const hours = Math.floor(duration / (1000 * 60 * 60));
+  const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((duration % (1000 * 60)) / 1000);
+  return { hours, minutes, seconds, totalMs: duration };
+}
+
+function formatDuration(ms) {
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+  return `${hours}h ${minutes}m ${seconds}s`;
+}
+
+function getUserTotalShiftTime(shiftsDB, userId, type = null) {
+  let totalMs = 0;
+  
+  for(const shift of shiftsDB.completedShifts) {
+    if(shift.userId === userId && shift.voided !== true) {
+      if(type === null || shift.type === type) {
+        totalMs += shift.duration;
+      }
+    }
+  }
+  
+  return totalMs;
+}
 
 
 
@@ -404,7 +448,7 @@ const commands = [
           .addChoices(
             {name: 'Patrol', value: 'Patrol'},
             {name: 'CRU', value: 'CRU'},
-            {name: 'MCD', value: 'MCD'},
+            {name: 'MCU', value: 'MCU'},
             {name: 'Corrections', value: 'Corrections'},
             {name: 'Training', value: 'Training'}
           )
@@ -793,7 +837,69 @@ new SlashCommandBuilder()
 ];
 
 
-
+new SlashCommandBuilder()
+  .setName('shift')
+  .setDescription('Manage deputy shifts')
+  .setDefaultMemberPermissions(null)
+  .addSubcommand(sub =>
+    sub.setName('manage')
+      .setDescription('Start or end your shift')
+      .addStringOption(opt => opt.setName('type').setDescription('Shift type').setRequired(true)
+        .addChoices(
+          {name: 'Patrol', value: 'Patrol'},
+          {name: 'CRU', value: 'CRU'},
+          {name: 'MCU', value: 'MCU'},
+          {name: 'VITF', value: 'VITF'},
+          {name: 'Corrections', value: 'Corrections'}
+        )
+      )
+  )
+  .addSubcommand(sub =>
+    sub.setName('leaderboard')
+      .setDescription('View shift time leaderboard')
+      .addStringOption(opt => opt.setName('type').setDescription('Filter by shift type').setRequired(false)
+        .addChoices(
+          {name: 'Patrol', value: 'Patrol'},
+          {name: 'CRU', value: 'CRU'},
+          {name: 'MCU', value: 'MCU'},
+          {name: 'VITF', value: 'VITF'},
+          {name: 'Corrections', value: 'Corrections'}
+        )
+      )
+      .addStringOption(opt => opt.setName('timeframe').setDescription('Timeframe for leaderboard').setRequired(false)
+        .addChoices(
+          {name: 'All Time', value: 'all'},
+          {name: 'Last 7 Days', value: '7d'},
+          {name: 'Last 30 Days', value: '30d'},
+          {name: 'This Month', value: 'month'}
+        )
+      )
+  )
+  .addSubcommand(sub =>
+    sub.setName('online')
+      .setDescription('View who is currently on shift')
+  )
+  .addSubcommand(sub =>
+    sub.setName('admin')
+      .setDescription('Admin: Manage another user\'s shift')
+      .addUserOption(opt => opt.setName('user').setDescription('User to manage').setRequired(true))
+  )
+  .addSubcommand(sub =>
+    sub.setName('activity')
+      .setDescription('View activity list for a division')
+      .addStringOption(opt => opt.setName('type').setDescription('Division type').setRequired(true)
+        .addChoices(
+          {name: 'Patrol', value: 'Patrol'},
+          {name: 'CRU', value: 'CRU'},
+          {name: 'MCU', value: 'MCU'},
+          {name: 'VITF', value: 'VITF'},
+          {name: 'Corrections', value: 'Corrections'}
+        )
+      )
+  )
+  .toJSON(),
+  
+  ];
 
 
 
@@ -1254,6 +1360,173 @@ client.on('interactionCreate', async interaction=>{
       return;
     }
   }
+
+  // Shift admin button handlers
+    if(interaction.customId.startsWith('shift_admin_')) {
+      const parts = interaction.customId.split('_');
+      const action = parts[2];
+      const targetUserId = parts[3];
+
+      const allowedAdminRoles = ['1405655436585205841'];
+      if(!interaction.member.roles.cache.some(r => allowedAdminRoles.includes(r.id))){
+        return interaction.reply({content:'You do not have permission to use this.', flags: MessageFlags.Ephemeral});
+      }
+
+      const shiftsDB = loadShifts();
+      const targetUser = await interaction.client.users.fetch(targetUserId);
+
+      if(action === 'start') {
+        if(shiftsDB.activeShifts[targetUserId]) {
+          return interaction.reply({content:'This user already has an active shift.', flags: MessageFlags.Ephemeral});
+        }
+
+        // Show modal to select shift type
+        const modal = new ModalBuilder()
+          .setCustomId(`shift_start_modal_${targetUserId}`)
+          .setTitle('Start Shift');
+
+        const typeInput = new TextInputBuilder()
+          .setCustomId('shift_type')
+          .setLabel('Shift Type (Patrol/CRU/MCU/VITF/Corrections)')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(typeInput));
+        await interaction.showModal(modal);
+      }
+
+      else if(action === 'stop') {
+        if(!shiftsDB.activeShifts[targetUserId]) {
+          return interaction.reply({content:'This user does not have an active shift.', flags: MessageFlags.Ephemeral});
+        }
+
+        const activeShift = shiftsDB.activeShifts[targetUserId];
+        const startTime = new Date(activeShift.startTime).getTime();
+        const endTime = Date.now();
+        const duration = calculateShiftDuration(startTime, endTime);
+
+        const shiftId = generateShiftID(shiftsDB);
+        const completedShift = {
+          id: shiftId,
+          userId: targetUserId,
+          type: activeShift.type,
+          startTime: activeShift.startTime,
+          endTime: new Date().toISOString(),
+          duration: duration.totalMs,
+          voided: false,
+          stoppedBy: interaction.user.id
+        };
+
+        shiftsDB.completedShifts.push(completedShift);
+        delete shiftsDB.activeShifts[targetUserId];
+        saveShifts(shiftsDB);
+
+        const embed = new EmbedBuilder()
+          .setTitle('Shift Stopped (Admin)')
+          .setColor('#E74C3C')
+          .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+          .addFields(
+            {name:'Shift ID',value:shiftId,inline:true},
+            {name:'User',value:`${targetUser}`,inline:true},
+            {name:'Type',value:activeShift.type,inline:true},
+            {name:'Duration',value:formatDuration(duration.totalMs),inline:true},
+            {name:'Stopped By',value:`${interaction.user}`,inline:true}
+          )
+          .setFooter({text:'BCSO Utilities'})
+          .setTimestamp();
+
+        const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+        if(logChannel) await logChannel.send({embeds:[embed]});
+
+        await interaction.reply({content:`Shift stopped for ${targetUser.tag}. Duration: ${formatDuration(duration.totalMs)}`, flags: MessageFlags.Ephemeral});
+      }
+
+      else if(action === 'void') {
+        // Show modal to select shift ID to void
+        const modal = new ModalBuilder()
+          .setCustomId(`shift_void_modal_${targetUserId}`)
+          .setTitle('Void Shift');
+
+        const idInput = new TextInputBuilder()
+          .setCustomId('shift_id')
+          .setLabel('Shift ID to void (e.g., SH123)')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
+        modal.addComponents(new ActionRowBuilder().addComponents(idInput));
+        await interaction.showModal(modal);
+      }
+
+      else if(action === 'addtime') {
+        // Show modal to add time
+        const modal = new ModalBuilder()
+          .setCustomId(`shift_addtime_modal_${targetUserId}`)
+          .setTitle('Add Shift Time');
+
+        const idInput = new TextInputBuilder()
+          .setCustomId('shift_id')
+          .setLabel('Shift ID (e.g., SH123)')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
+        const hoursInput = new TextInputBuilder()
+          .setCustomId('hours')
+          .setLabel('Hours to add')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setPlaceholder('0');
+
+        const minutesInput = new TextInputBuilder()
+          .setCustomId('minutes')
+          .setLabel('Minutes to add')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setPlaceholder('0');
+
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(idInput),
+          new ActionRowBuilder().addComponents(hoursInput),
+          new ActionRowBuilder().addComponents(minutesInput)
+        );
+        await interaction.showModal(modal);
+      }
+
+      else if(action === 'removetime') {
+        // Show modal to remove time
+        const modal = new ModalBuilder()
+          .setCustomId(`shift_removetime_modal_${targetUserId}`)
+          .setTitle('Remove Shift Time');
+
+        const idInput = new TextInputBuilder()
+          .setCustomId('shift_id')
+          .setLabel('Shift ID (e.g., SH123)')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
+        const hoursInput = new TextInputBuilder()
+          .setCustomId('hours')
+          .setLabel('Hours to remove')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setPlaceholder('0');
+
+        const minutesInput = new TextInputBuilder()
+          .setCustomId('minutes')
+          .setLabel('Minutes to remove')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setPlaceholder('0');
+
+        modal.addComponents(
+          new ActionRowBuilder().addComponents(idInput),
+          new ActionRowBuilder().addComponents(hoursInput),
+          new ActionRowBuilder().addComponents(minutesInput)
+        );
+        await interaction.showModal(modal);
+      }
+
+      return;
+    }
 
 
 
@@ -2930,7 +3203,195 @@ else if(cmd==='massshift-start'){
     }
 
 
+else if(interaction.isModalSubmit() && interaction.customId.startsWith('shift_start_modal_')){
+      const targetUserId = interaction.customId.split('_')[3];
+      const shiftType = interaction.fields.getTextInputValue('shift_type');
 
+      const validTypes = ['Patrol', 'CRU', 'MCU', 'VITF', 'Corrections'];
+      if(!validTypes.includes(shiftType)) {
+        return interaction.reply({content:'Invalid shift type. Must be: Patrol, CRU, MCU, VITF, or Corrections', flags: MessageFlags.Ephemeral});
+      }
+
+      const shiftsDB = loadShifts();
+      const targetUser = await interaction.client.users.fetch(targetUserId);
+
+      shiftsDB.activeShifts[targetUserId] = {
+        type: shiftType,
+        startTime: new Date().toISOString(),
+        startedBy: interaction.user.id
+      };
+      saveShifts(shiftsDB);
+
+      const embed = new EmbedBuilder()
+        .setTitle('Shift Started (Admin)')
+        .setColor('#2ECC71')
+        .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+        .addFields(
+          {name:'User',value:`${targetUser}`,inline:true},
+          {name:'Type',value:shiftType,inline:true},
+          {name:'Started By',value:`${interaction.user}`,inline:true},
+          {name:'Started',value:`<t:${Math.floor(Date.now()/1000)}:f>`,inline:false}
+        )
+        .setFooter({text:'BCSO Utilities'})
+        .setTimestamp();
+
+      const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+      if(logChannel) await logChannel.send({embeds:[embed]});
+
+      await interaction.reply({content:`Shift started for ${targetUser.tag} - ${shiftType}`, flags: MessageFlags.Ephemeral});
+    }
+
+    else if(interaction.isModalSubmit() && interaction.customId.startsWith('shift_void_modal_')){
+      const targetUserId = interaction.customId.split('_')[3];
+      const shiftId = interaction.fields.getTextInputValue('shift_id').toUpperCase();
+
+      const shiftsDB = loadShifts();
+      const shift = shiftsDB.completedShifts.find(s => s.id === shiftId && s.userId === targetUserId);
+
+      if(!shift) {
+        return interaction.reply({content:`No shift found with ID ${shiftId} for this user.`, flags: MessageFlags.Ephemeral});
+      }
+
+      if(shift.voided) {
+        return interaction.reply({content:'This shift is already voided.', flags: MessageFlags.Ephemeral});
+      }
+
+      shift.voided = true;
+      shift.voidedBy = interaction.user.id;
+      shift.voidedAt = new Date().toISOString();
+      saveShifts(shiftsDB);
+
+      const targetUser = await interaction.client.users.fetch(targetUserId);
+
+      const embed = new EmbedBuilder()
+        .setTitle('Shift Voided')
+        .setColor('#95A5A6')
+        .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+        .addFields(
+          {name:'Shift ID',value:shiftId,inline:true},
+          {name:'User',value:`${targetUser}`,inline:true},
+          {name:'Type',value:shift.type,inline:true},
+          {name:'Original Duration',value:formatDuration(shift.duration),inline:true},
+          {name:'Voided By',value:`${interaction.user}`,inline:true}
+        )
+        .setFooter({text:'BCSO Utilities'})
+        .setTimestamp();
+
+      const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+      if(logChannel) await logChannel.send({embeds:[embed]});
+
+      await interaction.reply({content:`Shift ${shiftId} has been voided.`, flags: MessageFlags.Ephemeral});
+    }
+
+    else if(interaction.isModalSubmit() && interaction.customId.startsWith('shift_addtime_modal_')){
+      const targetUserId = interaction.customId.split('_')[3];
+      const shiftId = interaction.fields.getTextInputValue('shift_id').toUpperCase();
+      const hours = parseInt(interaction.fields.getTextInputValue('hours')) || 0;
+      const minutes = parseInt(interaction.fields.getTextInputValue('minutes')) || 0;
+
+      const shiftsDB = loadShifts();
+      const shift = shiftsDB.completedShifts.find(s => s.id === shiftId && s.userId === targetUserId);
+
+      if(!shift) {
+        return interaction.reply({content:`No shift found with ID ${shiftId} for this user.`, flags: MessageFlags.Ephemeral});
+      }
+
+      if(shift.voided) {
+        return interaction.reply({content:'Cannot modify a voided shift.', flags: MessageFlags.Ephemeral});
+      }
+
+      const timeToAdd = (hours * 60 * 60 * 1000) + (minutes * 60 * 1000);
+      const oldDuration = shift.duration;
+      shift.duration += timeToAdd;
+
+      if(!shift.modifications) shift.modifications = [];
+      shift.modifications.push({
+        type: 'add',
+        amount: timeToAdd,
+        by: interaction.user.id,
+        at: new Date().toISOString()
+      });
+
+      saveShifts(shiftsDB);
+
+      const targetUser = await interaction.client.users.fetch(targetUserId);
+
+      const embed = new EmbedBuilder()
+        .setTitle('Shift Time Added')
+        .setColor('#3498DB')
+        .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+        .addFields(
+          {name:'Shift ID',value:shiftId,inline:true},
+          {name:'User',value:`${targetUser}`,inline:true},
+          {name:'Type',value:shift.type,inline:true},
+          {name:'Time Added',value:`${hours}h ${minutes}m`,inline:true},
+          {name:'Old Duration',value:formatDuration(oldDuration),inline:true},
+          {name:'New Duration',value:formatDuration(shift.duration),inline:true},
+          {name:'Modified By',value:`${interaction.user}`,inline:false}
+        )
+        .setFooter({text:'BCSO Utilities'})
+        .setTimestamp();
+
+      const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+      if(logChannel) await logChannel.send({embeds:[embed]});
+
+      await interaction.reply({content:`Added ${hours}h ${minutes}m to shift ${shiftId}. New duration: ${formatDuration(shift.duration)}`, flags: MessageFlags.Ephemeral});
+    }
+
+    else if(interaction.isModalSubmit() && interaction.customId.startsWith('shift_removetime_modal_')){
+      const targetUserId = interaction.customId.split('_')[3];
+      const shiftId = interaction.fields.getTextInputValue('shift_id').toUpperCase();
+      const hours = parseInt(interaction.fields.getTextInputValue('hours')) || 0;
+      const minutes = parseInt(interaction.fields.getTextInputValue('minutes')) || 0;
+
+      const shiftsDB = loadShifts();
+      const shift = shiftsDB.completedShifts.find(s => s.id === shiftId && s.userId === targetUserId);
+
+      if(!shift) {
+        return interaction.reply({content:`No shift found with ID ${shiftId} for this user.`, flags: MessageFlags.Ephemeral});
+      }
+
+      if(shift.voided) {
+        return interaction.reply({content:'Cannot modify a voided shift.', flags: MessageFlags.Ephemeral});
+      }
+
+      const timeToRemove = (hours * 60 * 60 * 1000) + (minutes * 60 * 1000);
+      const oldDuration = shift.duration;
+      shift.duration = Math.max(0, shift.duration - timeToRemove);
+
+      if(!shift.modifications) shift.modifications = [];
+      shift.modifications.push({
+        type: 'remove',
+        amount: timeToRemove,
+        by: interaction.user.id,
+        at: new Date().toISOString()
+      });
+
+      saveShifts(shiftsDB);
+
+      const targetUser = await interaction.client.users.fetch(targetUserId);
+
+      const embed = new EmbedBuilder()
+        .setTitle('Shift Time Removed')
+        .setColor('#E67E22')
+        .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+        .addFields(
+          {name:'Shift ID',value:shiftId,inline:true},
+          {name:'User',value:`${targetUser}`,inline:true},
+          {name:'Type',value:shift.type,inline:true},
+          {name:'Time Removed',value:`${hours}h ${minutes}m`,inline:true},
+          {name:'Old Duration',value:formatDuration(oldDuration),inline:true},
+          {name:'New Duration',value:formatDuration(shift.duration),inline:true},
+          {name:'Modified By',value:`${interaction.user}`,inline:false}
+        )
+        .setFooter({text:'BCSO Utilities'})
+        .setTimestamp();
+
+      const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+      if(logChannel) await logChannel.send({embeds:[embed]});
+
+      await interaction.reply({content:`Removed ${hours}h ${minutes}m from shift ${shiftId}. New duration: ${formatDuration(shift.duration)}`, flags: MessageFlags.Ephemeral});
+    }
 
 
 
@@ -3957,6 +4418,382 @@ else if(cmd==='deployment-end'){
     }
   }
 });
+
+else if(cmd==='shift'){
+      const sub = interaction.options.getSubcommand();
+
+      if(sub==='manage'){
+        const allowedShiftRoles = ['1410486708998373387'];
+        if(!interaction.member.roles.cache.some(r => allowedShiftRoles.includes(r.id))){
+          return interaction.reply({content:'You do not have permission to use this command.', flags: MessageFlags.Ephemeral});
+        }
+
+        const shiftsDB = loadShifts();
+        const type = interaction.options.getString('type');
+        const userId = interaction.user.id;
+
+        // Check if user already has an active shift
+        if(shiftsDB.activeShifts[userId]){
+          // End the shift
+          const activeShift = shiftsDB.activeShifts[userId];
+          const startTime = new Date(activeShift.startTime).getTime();
+          const endTime = Date.now();
+          const duration = calculateShiftDuration(startTime, endTime);
+
+          const shiftId = generateShiftID(shiftsDB);
+          const completedShift = {
+            id: shiftId,
+            userId: userId,
+            type: activeShift.type,
+            startTime: activeShift.startTime,
+            endTime: new Date().toISOString(),
+            duration: duration.totalMs,
+            voided: false
+          };
+
+          shiftsDB.completedShifts.push(completedShift);
+          delete shiftsDB.activeShifts[userId];
+          saveShifts(shiftsDB);
+
+          const embed = new EmbedBuilder()
+            .setTitle('Shift Ended')
+            .setColor('#E74C3C')
+            .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+            .addFields(
+              {name:'Shift ID',value:shiftId,inline:true},
+              {name:'Type',value:activeShift.type,inline:true},
+              {name:'Duration',value:`${duration.hours}h ${duration.minutes}m ${duration.seconds}s`,inline:true},
+              {name:'Started',value:`<t:${Math.floor(startTime/1000)}:f>`,inline:false},
+              {name:'Ended',value:`<t:${Math.floor(endTime/1000)}:f>`,inline:false}
+            )
+            .setFooter({text:'BCSO Utilities'})
+            .setTimestamp();
+
+          const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+          if(logChannel) await logChannel.send({embeds:[embed]});
+
+          await interaction.reply({content:`Your ${activeShift.type} shift has ended. Duration: ${duration.hours}h ${duration.minutes}m ${duration.seconds}s`, flags: MessageFlags.Ephemeral});
+
+        } else {
+          // Start a new shift
+          shiftsDB.activeShifts[userId] = {
+            type: type,
+            startTime: new Date().toISOString()
+          };
+          saveShifts(shiftsDB);
+
+          const embed = new EmbedBuilder()
+            .setTitle('Shift Started')
+            .setColor('#2ECC71')
+            .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+            .addFields(
+              {name:'Deputy',value:`${interaction.user}`,inline:true},
+              {name:'Type',value:type,inline:true},
+              {name:'Started',value:`<t:${Math.floor(Date.now()/1000)}:f>`,inline:true}
+            )
+            .setFooter({text:'BCSO Utilities'})
+            .setTimestamp();
+
+          const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+          if(logChannel) await logChannel.send({embeds:[embed]});
+
+          await interaction.reply({content:`Your ${type} shift has started!`, flags: MessageFlags.Ephemeral});
+        }
+      }
+
+      else if(sub==='leaderboard'){
+        const allowedShiftRoles = ['1410486708998373387'];
+        if(!interaction.member.roles.cache.some(r => allowedShiftRoles.includes(r.id))){
+          return interaction.reply({content:'You do not have permission to use this command.', flags: MessageFlags.Ephemeral});
+        }
+
+        const shiftsDB = loadShifts();
+        const filterType = interaction.options.getString('type');
+        const timeframe = interaction.options.getString('timeframe') || 'all';
+
+        // Calculate time threshold
+        let timeThreshold = 0;
+        const now = Date.now();
+        
+        if(timeframe !== 'all') {
+          switch(timeframe) {
+            case '7d':
+              timeThreshold = now - (7 * 24 * 60 * 60 * 1000);
+              break;
+            case '30d':
+              timeThreshold = now - (30 * 24 * 60 * 60 * 1000);
+              break;
+            case 'month':
+              const date = new Date();
+              timeThreshold = new Date(date.getFullYear(), date.getMonth(), 1).getTime();
+              break;
+          }
+        }
+
+        // Calculate total times for each user
+        const userTimes = {};
+        
+        for(const shift of shiftsDB.completedShifts) {
+          if(shift.voided) continue;
+          
+          // Apply filters
+          if(filterType && shift.type !== filterType) continue;
+          if(timeframe !== 'all' && new Date(shift.endTime).getTime() < timeThreshold) continue;
+
+          if(!userTimes[shift.userId]) {
+            userTimes[shift.userId] = 0;
+          }
+          userTimes[shift.userId] += shift.duration;
+        }
+
+        // Sort by time
+        const sortedUsers = Object.entries(userTimes)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 10);
+
+        if(sortedUsers.length === 0) {
+          return interaction.reply({content:'No shift data available for the selected filters.', flags: MessageFlags.Ephemeral});
+        }
+
+        const embed = new EmbedBuilder()
+          .setTitle('🏆 Shift Time Leaderboard')
+          .setColor('#F1C40F')
+          .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+          .setFooter({text:'BCSO Utilities'})
+          .setTimestamp();
+
+        if(filterType) embed.setDescription(`**Division:** ${filterType}`);
+
+        const timeframeText = {
+          'all': 'All Time',
+          '7d': 'Last 7 Days',
+          '30d': 'Last 30 Days',
+          'month': 'This Month'
+        };
+        embed.addFields({name:'Timeframe',value:timeframeText[timeframe],inline:false});
+
+        let rank = 1;
+        for(const [userId, totalMs] of sortedUsers) {
+          const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `${rank}.`;
+          embed.addFields({
+            name:`${medal} <@${userId}>`,
+            value:`${formatDuration(totalMs)}`,
+            inline:false
+          });
+          rank++;
+        }
+
+        await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
+      }
+
+      else if(sub==='online'){
+        const allowedShiftRoles = ['1410486708998373387'];
+        if(!interaction.member.roles.cache.some(r => allowedShiftRoles.includes(r.id))){
+          return interaction.reply({content:'You do not have permission to use this command.', flags: MessageFlags.Ephemeral});
+        }
+
+        const shiftsDB = loadShifts();
+        const activeShifts = Object.entries(shiftsDB.activeShifts);
+
+        if(activeShifts.length === 0) {
+          return interaction.reply({content:'No deputies are currently on shift.', flags: MessageFlags.Ephemeral});
+        }
+
+        // Group by type
+        const shiftsByType = {};
+        for(const [userId, shiftData] of activeShifts) {
+          if(!shiftsByType[shiftData.type]) {
+            shiftsByType[shiftData.type] = [];
+          }
+          
+          const startTime = new Date(shiftData.startTime).getTime();
+          const currentDuration = Date.now() - startTime;
+          
+          shiftsByType[shiftData.type].push({
+            userId,
+            startTime,
+            duration: currentDuration
+          });
+        }
+
+        const embed = new EmbedBuilder()
+          .setTitle('👮 Deputies Currently On Shift')
+          .setColor('#3498DB')
+          .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+          .setDescription(`**Total Online:** ${activeShifts.length}`)
+          .setFooter({text:'BCSO Utilities'})
+          .setTimestamp();
+
+        for(const [type, shifts] of Object.entries(shiftsByType)) {
+          const shiftList = shifts.map(s => 
+            `<@${s.userId}> - ${formatDuration(s.duration)}`
+          ).join('\n');
+          
+          embed.addFields({
+            name:`${type} (${shifts.length})`,
+            value:shiftList,
+            inline:false
+          });
+        }
+
+        await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
+      }
+
+      else if(sub==='admin'){
+        const allowedAdminRoles = ['1405655436585205841'];
+        if(!interaction.member.roles.cache.some(r => allowedAdminRoles.includes(r.id))){
+          return interaction.reply({content:'You do not have permission to use this command.', flags: MessageFlags.Ephemeral});
+        }
+
+        const targetUser = interaction.options.getUser('user');
+        const shiftsDB = loadShifts();
+
+        // Create admin menu
+        const startButton = new ButtonBuilder()
+          .setCustomId(`shift_admin_start_${targetUser.id}`)
+          .setLabel('Start Shift')
+          .setStyle(ButtonStyle.Success);
+
+        const stopButton = new ButtonBuilder()
+          .setCustomId(`shift_admin_stop_${targetUser.id}`)
+          .setLabel('Stop Shift')
+          .setStyle(ButtonStyle.Danger);
+
+        const voidButton = new ButtonBuilder()
+          .setCustomId(`shift_admin_void_${targetUser.id}`)
+          .setLabel('Void Shift')
+          .setStyle(ButtonStyle.Secondary);
+
+        const addTimeButton = new ButtonBuilder()
+          .setCustomId(`shift_admin_addtime_${targetUser.id}`)
+          .setLabel('Add Time')
+          .setStyle(ButtonStyle.Primary);
+
+        const removeTimeButton = new ButtonBuilder()
+          .setCustomId(`shift_admin_removetime_${targetUser.id}`)
+          .setLabel('Remove Time')
+          .setStyle(ButtonStyle.Primary);
+
+        const row1 = new ActionRowBuilder().addComponents(startButton, stopButton, voidButton);
+        const row2 = new ActionRowBuilder().addComponents(addTimeButton, removeTimeButton);
+
+        const isOnShift = shiftsDB.activeShifts[targetUser.id];
+        const totalTime = getUserTotalShiftTime(shiftsDB, targetUser.id);
+
+        const embed = new EmbedBuilder()
+          .setTitle('Shift Admin Panel')
+          .setColor('#95A5A6')
+          .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+          .addFields(
+            {name:'Target User',value:`${targetUser}`,inline:true},
+            {name:'Current Status',value:isOnShift ? `On Shift (${isOnShift.type})` : 'Off Shift',inline:true},
+            {name:'Total Shift Time',value:formatDuration(totalTime),inline:true}
+          )
+          .setFooter({text:'BCSO Utilities'})
+          .setTimestamp();
+
+        await interaction.reply({embeds:[embed], components:[row1, row2], flags: MessageFlags.Ephemeral});
+      }
+
+      else if(sub==='activity'){
+        const shiftsDB = loadShifts();
+        const type = interaction.options.getString('type');
+
+        const roleMap = {
+          'Patrol': '1410485432939974666',
+          'CRU': '1410480565492383754',
+          'MCU': '1432581538049339444',
+          'VITF': '1431682792001110147',
+          'Corrections': '1410669246341578814'
+        };
+
+        const excludeRoleId = '1405655436585205846';
+        const targetRoleId = roleMap[type];
+
+        if(!targetRoleId) {
+          return interaction.reply({content:'Invalid division type.', flags: MessageFlags.Ephemeral});
+        }
+
+        await interaction.deferReply({flags: MessageFlags.Ephemeral});
+
+        const guild = interaction.guild;
+        const members = await guild.members.fetch();
+
+        const divisionMembers = members.filter(member => 
+          member.roles.cache.has(targetRoleId) && 
+          !member.roles.cache.has(excludeRoleId) &&
+          !member.user.bot
+        );
+
+        if(divisionMembers.size === 0) {
+          return interaction.editReply({content:`No members found in ${type}.`});
+        }
+
+        // Separate online and offline
+        const onlineMembers = [];
+        const offlineMembers = [];
+
+        for(const [userId, member] of divisionMembers) {
+          const isOnShift = shiftsDB.activeShifts[userId];
+          const totalTime = getUserTotalShiftTime(shiftsDB, userId, type);
+          
+          const memberData = {
+            user: member.user,
+            totalTime: totalTime,
+            isOnShift: isOnShift,
+            shiftDuration: isOnShift ? Date.now() - new Date(isOnShift.startTime).getTime() : 0
+          };
+
+          if(isOnShift && isOnShift.type === type) {
+            onlineMembers.push(memberData);
+          } else {
+            offlineMembers.push(memberData);
+          }
+        }
+
+        // Sort by shift time
+        onlineMembers.sort((a, b) => b.shiftDuration - a.shiftDuration);
+        offlineMembers.sort((a, b) => b.totalTime - a.totalTime);
+
+        const embed = new EmbedBuilder()
+          .setTitle(`📋 ${type} Division Activity`)
+          .setColor('#3498DB')
+          .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+          .setDescription(`**Total Members:** ${divisionMembers.size}\n**Online:** ${onlineMembers.length}\n**Offline:** ${offlineMembers.length}`)
+          .setFooter({text:'BCSO Utilities'})
+          .setTimestamp();
+
+        if(onlineMembers.length > 0) {
+          const onlineList = onlineMembers.map(m => 
+            `🟢 ${m.user} - ${formatDuration(m.shiftDuration)} (Total: ${formatDuration(m.totalTime)})`
+          ).join('\n');
+          
+          embed.addFields({
+            name:'🟢 Currently On Shift',
+            value:onlineList.length > 1024 ? onlineList.substring(0, 1021) + '...' : onlineList,
+            inline:false
+          });
+        }
+
+        if(offlineMembers.length > 0) {
+          const offlineList = offlineMembers.slice(0, 15).map(m => 
+            `⚪ ${m.user} - Total: ${formatDuration(m.totalTime)}`
+          ).join('\n');
+          
+          embed.addFields({
+            name:'⚪ Off Shift',
+            value:offlineList.length > 1024 ? offlineList.substring(0, 1021) + '...' : offlineList,
+            inline:false
+          });
+
+          if(offlineMembers.length > 15) {
+            embed.addFields({name:'Note',value:`Showing 15 of ${offlineMembers.length} offline members`,inline:false});
+          }
+        }
+
+        await interaction.editReply({embeds:[embed]});
+      }
+    }
 
 const app = express();
 app.get('/',(req,res)=>res.send('Bot is alive!'));
