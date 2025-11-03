@@ -2755,56 +2755,6 @@ else if(cmd==='log-citation'){
 
   await interaction.deferReply({flags: MessageFlags.Ephemeral});
 
-  const username = interaction.options.getString('username');
-  const reason = interaction.options.getString('reason');
-  const fine = interaction.options.getString('fine');
-  const citationId = generateCitationID();
-
-  // Fetch Roblox user data
-  const robloxData = await getRobloxUserData(username);
-  
-  const usernameDisplay = robloxData 
-    ? `[${robloxData.displayName}](${robloxData.profileUrl})`
-    : username;
-
-  const embed = new EmbedBuilder()
-    .setTitle('Citation Log')
-    .setDescription(`**ID:** ${citationId}\n**Suspect:** ${usernameDisplay}\n**Reason(s):** ${reason}\n**Fine:** ${fine}`)
-    .setColor('#95A5A6')
-    .setThumbnail(robloxData?.avatarUrl || 'https://media.discordapp.net/attachments/1410429525329973379/1414810355980304486/briarfield_county.png?ex=68efb992&is=68ee6812&hm=28106432618af10c82fd63ee23c673aeb3001f3cdead2f4ec0efed6fe8ed1025&=&format=webp&quality=lossless')
-    .setFooter({text:`Executed by ${interaction.user.tag}`})
-    .setTimestamp();
-
-  const citationChannelId = '1412526729184153640';
-  const citationChannel = await interaction.client.channels.fetch(citationChannelId);
-  
-  if(citationChannel) {
-    await citationChannel.send({embeds:[embed]});
-    const logs = loadLogs();
-    logs.citations.push({id: citationId, username, reason, fine, moderator: interaction.user.id, timestamp: new Date().toISOString()});
-    saveLogs(logs);
-    await interaction.editReply({content:`Citation logged successfully for ${username}.`});
-  } else {
-    await interaction.editReply({content:'Failed to log citation: channel not found.'});
-  }
-}
-
-
-
-
-
-
-
-
-      const username = interaction.options.getString('username');
-      const reason = interaction.options.getString('reason');
-      const fine = interaction.options.getString('fine');
-      const citationId = generateCitationID();
-
-
-
-
-
 
 
 
