@@ -3884,7 +3884,7 @@ else if(cmd==='deployment-end'){
           .setFooter({text:'BCSO Utilities'})
           .setTimestamp();
 
-        const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+        const logChannel = await interaction.client.channels.fetch('1434981391287718059');
         if(logChannel) await logChannel.send({embeds:[embed]});
 
         await interaction.reply({content:`Note ${noteId} successfully added to ${targetUser.tag}.`, flags: MessageFlags.Ephemeral});
@@ -3917,7 +3917,7 @@ else if(cmd==='deployment-end'){
           .setFooter({text:'BCSO Utilities'})
           .setTimestamp();
 
-        const logChannel = await interaction.client.channels.fetch('1405655437218414753');
+        const logChannel = await interaction.client.channels.fetch('1434981391287718059');
         if(logChannel) await logChannel.send({embeds:[embed]});
 
         await interaction.reply({content:`Note ${noteId} successfully removed from ${targetUser.tag}.`, flags: MessageFlags.Ephemeral});
