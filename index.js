@@ -4778,9 +4778,10 @@ else if(cmd==='shift'){
         }
 
 await interaction.editReply({embeds:[embed]});
-      }
-    }
-  }catch(err){
+      }  // Close 'activity' subcommand
+    }  // Close 'shift' command
+  }  // Close try block - THIS WAS MISSING!
+  catch(err){
     console.error(err);
     if(!interaction.replied && !interaction.deferred){
       await interaction.reply({content:'An error occurred while executing this command.', flags: MessageFlags.Ephemeral});
