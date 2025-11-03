@@ -4406,14 +4406,6 @@ else if(cmd==='deployment-end'){
       }
     }
 
-  }catch(err){
-    console.error(err);
-    if(!interaction.replied && !interaction.deferred){
-      await interaction.reply({content:'An error occurred while executing this command.', flags: MessageFlags.Ephemeral});
-    }
-  }
-});
-
 else if(cmd==='shift'){
       const sub = interaction.options.getSubcommand();
 
@@ -4789,6 +4781,16 @@ else if(cmd==='shift'){
         await interaction.editReply({embeds:[embed]});
       }
     }
+
+
+  }catch(err){
+    console.error(err);
+    if(!interaction.replied && !interaction.deferred){
+      await interaction.reply({content:'An error occurred while executing this command.', flags: MessageFlags.Ephemeral});
+    }
+  }
+});
+
 
 const app = express();
 app.get('/',(req,res)=>res.send('Bot is alive!'));
