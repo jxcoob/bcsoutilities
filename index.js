@@ -1310,54 +1310,53 @@ client.on('interactionCreate', async interaction=>{
       return;
     }
 
-    // Complete operation button handler
-    if(interaction.customId.startsWith('complete_operation_')) {
-      const caseId = interaction.customId.split('_')[2];
-      
-      const completedButton = new ButtonBuilder()
-        .setCustomId(`complete_operation_${caseId}`)
-        .setLabel('Operation Concluded')
-        .setStyle(ButtonStyle.Success)
-        .setDisabled(true);
+// Complete operation button handler
+if(interaction.customId.startsWith('complete_operation_')) {
+  const caseId = interaction.customId.split('_')[2];
+  
+  const completedButton = new ButtonBuilder()
+    .setCustomId(`complete_operation_${caseId}`)
+    .setLabel('Operation Concluded')
+    .setStyle(ButtonStyle.Success)
+    .setDisabled(true);
 
-      const disabledRow = new ActionRowBuilder()
-        .addComponents(completedButton);
+  const disabledRow = new ActionRowBuilder()
+    .addComponents(completedButton);
 
-      const embed = interaction.message.embeds[0];
-      const updatedEmbed = new EmbedBuilder(embed.data)
-        .setColor('#2ECC71');
+  const embed = interaction.message.embeds[0];
+  const updatedEmbed = new EmbedBuilder(embed.data)
+    .setColor('#2ECC71');
 
-      await interaction.update({
-        embeds: [updatedEmbed],
-        components: [disabledRow]
-      });
+  await interaction.update({
+    embeds: [updatedEmbed],
+    components: [disabledRow]
+  });
 
-      // Log to oversight channel
-      const oversightChannelId = '1434380983498444800';
-      const oversightChannel = await interaction.client.channels.fetch(oversightChannelId);
-      
-      if(oversightChannel) {
-        const logEmbed = new EmbedBuilder()
-          .setTitle('Operation Completed')
-          .setDescription(`Case ${caseId} has been marked as completed by ${interaction.user}`)
-          .setColor('#2ECC71')
-          .addFields(
-            {name:'Case ID', value:caseId, inline:true},
-            {name:'Completed By', value:`${interaction.user}`, inline:true},
-            {name:'Completed At', value:`<t:${Math.floor(Date.now()/1000)}:F>`, inline:true}
-          )
-          .setFooter({text:'BCSO Utilities'})
-          .setTimestamp();
-        
-        await oversightChannel.send({embeds:[logEmbed]});
-      }
-
-      return;
-    }
+  // Log to oversight channel
+  const oversightChannelId = '1434380983498444800';
+  const oversightChannel = await interaction.client.channels.fetch(oversightChannelId);
+  
+  if(oversightChannel) {
+    const logEmbed = new EmbedBuilder()
+      .setTitle('Operation Completed')
+      .setDescription(`Case ${caseId} has been marked as completed by ${interaction.user}`)
+      .setColor('#2ECC71')
+      .addFields(
+        {name:'Case ID', value:caseId, inline:true},
+        {name:'Completed By', value:`${interaction.user}`, inline:true},
+        {name:'Completed At', value:`<t:${Math.floor(Date.now()/1000)}:F>`, inline:true}
+      )
+      .setFooter({text:'BCSO Utilities'})
+      .setTimestamp();
+    
+    await oversightChannel.send({embeds:[logEmbed]});
   }
+  
+  return; // ADD THIS RETURN STATEMENT
+}
 
-  // Shift admin button handlers
-    if(interaction.customId.startsWith('shift_admin_')) {
+// Shift admin button handlers - MOVE THIS OUTSIDE
+if(interaction.customId.startsWith('shift_admin_')) {
       const parts = interaction.customId.split('_');
       const action = parts[2];
       const targetUserId = parts[3];
@@ -4799,10 +4798,3 @@ app.listen(3000,()=>console.log('Web server running on port 3000'));
 client.login(token);
 
 
-
-
-
-
-
-
-client.login(token);
