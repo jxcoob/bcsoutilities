@@ -2638,7 +2638,7 @@ else if(cmd==='massshift-start'){
 
       const embed = new EmbedBuilder()
         .setTitle('Arrest Log')
-        .setDescription(`**ID:** ${arrestId}\n**Suspect:** ${username}\n**Charges:** ${charges}`)
+        .setDescription(`**ID:** ${arrestId}\n**Suspect:** [${username}](https://www.roblox.com/search/users?keyword=${encodeURIComponent(username)})\n**Charges:** ${charges}`)
         .setColor('#95A5A6')
         .setThumbnail('https://media.discordapp.net/attachments/1410429525329973379/1414810355980304486/briarfield_county.png?ex=68efb992&is=68ee6812&hm=28106432618af10c82fd63ee23c673aeb3001f3cdead2f4ec0efed6fe8ed1025&=&format=webp&quality=lossless')
         .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
@@ -2699,7 +2699,7 @@ else if(cmd==='massshift-start'){
 
       const embed = new EmbedBuilder()
         .setTitle('Citation Log')
-        .setDescription(`**ID:** ${citationId}\n**Suspect:** ${username}\n**Reason(s):** ${reason}\n**Fine:** ${fine}`)
+        .setDescription(`**ID:** ${citationId}\n**Suspect:** [${username}](https://www.roblox.com/search/users?keyword=${encodeURIComponent(username)})\n**Reason(s):** ${reason}\n**Fine:** ${fine}`)
         .setColor('#95A5A6')
         .setThumbnail('https://media.discordapp.net/attachments/1410429525329973379/1414810355980304486/briarfield_county.png?ex=68efb992&is=68ee6812&hm=28106432618af10c82fd63ee23c673aeb3001f3cdead2f4ec0efed6fe8ed1025&=&format=webp&quality=lossless')
         .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
@@ -2913,9 +2913,9 @@ else if(cmd==='massshift-start'){
 
 
 
-      const embed = new EmbedBuilder()
+const embed = new EmbedBuilder()
         .setTitle('New Warrant')
-        .setDescription(`**ID:** ${warrantId}\n**Suspect:** ${username}\n**Charges:** ${charges}`)
+        .setDescription(`**ID:** ${warrantId}\n**Suspect:** [${username}](https://www.roblox.com/search/users?keyword=${encodeURIComponent(username)})\n**Charges:** ${charges}`)
         .setColor('#95A5A6')
         .setThumbnail('https://media.discordapp.net/attachments/1410429525329973379/1414810355980304486/briarfield_county.png?ex=68efb992&is=68ee6812&hm=28106432618af10c82fd63ee23c673aeb3001f3cdead2f4ec0efed6fe8ed1025&=&format=webp&quality=lossless')
         .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
