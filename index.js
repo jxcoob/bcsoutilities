@@ -4777,24 +4777,19 @@ else if(cmd==='shift'){
           }
         }
 
-        await interaction.editReply({embeds:[embed]});
+await interaction.editReply({embeds:[embed]});
       }
     }
-
-
   }catch(err){
     console.error(err);
     if(!interaction.replied && !interaction.deferred){
       await interaction.reply({content:'An error occurred while executing this command.', flags: MessageFlags.Ephemeral});
     }
   }
-});
-
+}); // This closes the interactionCreate event handler
 
 const app = express();
 app.get('/',(req,res)=>res.send('Bot is alive!'));
 app.listen(3000,()=>console.log('Web server running on port 3000'));
 
 client.login(token);
-
-
