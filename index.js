@@ -1529,7 +1529,6 @@ if(sub==='execute'){
         }
 await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
   }
-}
 
 
 
