@@ -334,6 +334,38 @@ function saveRetiredUsers(retiredUsersMap) {
 }
 
 
+async function getRobloxUserData(username) {
+  try {
+    // First, get the user ID from username
+    const userResponse = await fetch(`https://users.roblox.com/v1/users/search?keyword=${encodeURIComponent(username)}&limit=1`);
+    const userData = await userResponse.json();
+    
+    if (!userData.data || userData.data.length === 0) {
+      return null;
+    }
+    
+    const userId = userData.data[0].id;
+    const displayName = userData.data[0].name;
+    
+    // Get the user's avatar image (2D headshot)
+    const avatarResponse = await fetch(`https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${userId}&size=150x150&format=Png`);
+    const avatarData = await avatarResponse.json();
+    
+    const avatarUrl = avatarData.data && avatarData.data[0] ? avatarData.data[0].imageUrl : null;
+    const profileUrl = `https://www.roblox.com/users/${userId}/profile`;
+    
+    return {
+      userId,
+      displayName,
+      avatarUrl,
+      profileUrl
+    };
+  } catch (error) {
+    console.error('Error fetching Roblox user data:', error);
+    return null;
+  }
+}
+
 
 
 
@@ -1598,22 +1630,37 @@ else if(cmd==='log-case'){
     return interaction.reply({content:'You do not have permission to log cases.', flags: MessageFlags.Ephemeral});
   }
 
+  await interaction.deferReply({flags: MessageFlags.Ephemeral});
+
   const suspects = interaction.options.getString('suspects');
   const charges = interaction.options.getString('charges');
   const caseReport = interaction.options.getString('case-report');
   const caseId = generateCaseID();
 
-  const suspectsList = suspects.split(',').map(s => `* ${s.trim()}`).join('\n');
+  // Process each suspect to get Roblox data
+  const suspectNames = suspects.split(',').map(s => s.trim());
+  const suspectPromises = suspectNames.map(name => getRobloxUserData(name));
+  const suspectDataArray = await Promise.all(suspectPromises);
+
+  // Create suspects list with hyperlinks
+  const suspectsList = suspectNames.map((name, index) => {
+    const data = suspectDataArray[index];
+    if (data) {
+      return `* [${data.displayName}](${data.profileUrl})`;
+    }
+    return `* ${name}`;
+  }).join('\n');
+
   const chargesList = charges.split(',').map(c => `* ${c.trim()}`).join('\n');
 
-    const caseEmbed = new EmbedBuilder()
+  const caseEmbed = new EmbedBuilder()
     .setTitle('<:global:1434375502549876776> UOTF Case Buildup')
     .setDescription(`> A new case buildup has been started by ${interaction.user}. View more information below.\n\n**Suspects Involved:**\n\n${suspectsList}\n\n**Charges:**\n\n${chargesList}\n\n**Case Report:**\n\n${caseReport}\n\n> Elaborate more on any additional information below, once this case is fully built up and ready to be carried out, select the "Initiate Operation" button below to forward this operation to the Critical Response Unit.`)
     .setColor('#95A5A6')
     .setFooter({text:'BCSO Utilities'})
     .setTimestamp();
 
-    const initiateButton = new ButtonBuilder()
+  const initiateButton = new ButtonBuilder()
     .setCustomId(`initiate_operation_${caseId}`)
     .setLabel('Initiate Operation')
     .setStyle(ButtonStyle.Primary);
@@ -1621,15 +1668,13 @@ else if(cmd==='log-case'){
   const buttonRow = new ActionRowBuilder()
     .addComponents(initiateButton);
 
-  // Send to the case buildup forum channel
   const caseForumChannelId = '1434380765675782268';
   const caseForumChannel = await interaction.client.channels.fetch(caseForumChannelId);
   
   if(!caseForumChannel) {
-    return interaction.reply({content:'Case forum channel not found.', flags: MessageFlags.Ephemeral});
+    return interaction.editReply({content:'Case forum channel not found.'});
   }
 
-  // Create forum post
   const forumThread = await caseForumChannel.threads.create({
     name: `Case: ${caseId}`,
     message: {
@@ -1638,7 +1683,6 @@ else if(cmd==='log-case'){
     }
   });
 
-  // Store case data for the button handler
   if(!global.caseData) global.caseData = {};
   global.caseData[caseId] = {
     suspects: suspectsList,
@@ -1648,7 +1692,6 @@ else if(cmd==='log-case'){
     threadId: forumThread.id
   };
 
-  // Send log to oversight channel
   const oversightChannelId = '1434380983498444800';
   const oversightChannel = await interaction.client.channels.fetch(oversightChannelId);
   
@@ -1668,7 +1711,7 @@ else if(cmd==='log-case'){
     await oversightChannel.send({embeds:[logEmbed]});
   }
 
-  await interaction.reply({content:`Case ${caseId} logged successfully and posted to the forum.`, flags: MessageFlags.Ephemeral});
+  await interaction.editReply({content:`Case ${caseId} logged successfully and posted to the forum.`});
 }
 
 
@@ -2612,10 +2655,45 @@ else if(cmd==='massshift-start'){
 
 
 
-    else if(cmd==='log-arrest'){
-      if(!interaction.member.roles.cache.some(r => r.id === logArrestRoleId)){
-        return interaction.reply({content:'You do not have permission to log arrests.', flags: MessageFlags.Ephemeral});
-      }
+else if(cmd==='log-arrest'){
+  if(!interaction.member.roles.cache.some(r => r.id === logArrestRoleId)){
+    return interaction.reply({content:'You do not have permission to log arrests.', flags: MessageFlags.Ephemeral});
+  }
+
+  await interaction.deferReply({flags: MessageFlags.Ephemeral});
+
+  const username = interaction.options.getString('username');
+  const charges = interaction.options.getString('charges');
+  const arrestId = generateArrestID();
+
+  // Fetch Roblox user data
+  const robloxData = await getRobloxUserData(username);
+  
+  const usernameDisplay = robloxData 
+    ? `[${robloxData.displayName}](${robloxData.profileUrl})`
+    : username;
+
+  const embed = new EmbedBuilder()
+    .setTitle('Arrest Log')
+    .setDescription(`**ID:** ${arrestId}\n**Suspect:** ${usernameDisplay}\n**Charges:** ${charges}`)
+    .setColor('#95A5A6')
+    .setThumbnail(robloxData?.avatarUrl || 'https://media.discordapp.net/attachments/1410429525329973379/1414810355980304486/briarfield_county.png?ex=68efb992&is=68ee6812&hm=28106432618af10c82fd63ee23c673aeb3001f3cdead2f4ec0efed6fe8ed1025&=&format=webp&quality=lossless')
+    .setFooter({text:`Executed by ${interaction.user.tag}`})
+    .setTimestamp();
+
+  const arrestChannelId = '1412528856652320879';
+  const arrestChannel = await interaction.client.channels.fetch(arrestChannelId);
+  
+  if(arrestChannel) {
+    await arrestChannel.send({embeds:[embed]});
+    const logs = loadLogs();
+    logs.arrests.push({id: arrestId, username, charges, moderator: interaction.user.id, timestamp: new Date().toISOString()});
+    saveLogs(logs);
+    await interaction.editReply({content:`Arrest logged successfully for ${username}.`});
+  } else {
+    await interaction.editReply({content:'Failed to log arrest: channel not found.'});
+  }
+}
 
 
 
@@ -2672,10 +2750,46 @@ else if(cmd==='massshift-start'){
 
 
 
-    else if(cmd==='log-citation'){
-      if(!interaction.member.roles.cache.some(r => r.id === logCitationRoleId)){
-        return interaction.reply({content:'You do not have permission to log citations.', flags: MessageFlags.Ephemeral});
-      }
+else if(cmd==='log-citation'){
+  if(!interaction.member.roles.cache.some(r => r.id === logCitationRoleId)){
+    return interaction.reply({content:'You do not have permission to log citations.', flags: MessageFlags.Ephemeral});
+  }
+
+  await interaction.deferReply({flags: MessageFlags.Ephemeral});
+
+  const username = interaction.options.getString('username');
+  const reason = interaction.options.getString('reason');
+  const fine = interaction.options.getString('fine');
+  const citationId = generateCitationID();
+
+  // Fetch Roblox user data
+  const robloxData = await getRobloxUserData(username);
+  
+  const usernameDisplay = robloxData 
+    ? `[${robloxData.displayName}](${robloxData.profileUrl})`
+    : username;
+
+  const embed = new EmbedBuilder()
+    .setTitle('Citation Log')
+    .setDescription(`**ID:** ${citationId}\n**Suspect:** ${usernameDisplay}\n**Reason(s):** ${reason}\n**Fine:** ${fine}`)
+    .setColor('#95A5A6')
+    .setThumbnail(robloxData?.avatarUrl || 'https://media.discordapp.net/attachments/1410429525329973379/1414810355980304486/briarfield_county.png?ex=68efb992&is=68ee6812&hm=28106432618af10c82fd63ee23c673aeb3001f3cdead2f4ec0efed6fe8ed1025&=&format=webp&quality=lossless')
+    .setFooter({text:`Executed by ${interaction.user.tag}`})
+    .setTimestamp();
+
+  const citationChannelId = '1412526729184153640';
+  const citationChannel = await interaction.client.channels.fetch(citationChannelId);
+  
+  if(citationChannel) {
+    await citationChannel.send({embeds:[embed]});
+    const logs = loadLogs();
+    logs.citations.push({id: citationId, username, reason, fine, moderator: interaction.user.id, timestamp: new Date().toISOString()});
+    saveLogs(logs);
+    await interaction.editReply({content:`Citation logged successfully for ${username}.`});
+  } else {
+    await interaction.editReply({content:'Failed to log citation: channel not found.'});
+  }
+}
 
 
 
@@ -2889,10 +3003,68 @@ else if(cmd==='massshift-start'){
 
 
 
-    else if(cmd==='log-warrant'){
-      if(!interaction.member.roles.cache.some(r => r.id === logWarrantRoleId)){
-        return interaction.reply({content:'You do not have permission to log warrants.', flags: MessageFlags.Ephemeral});
-      }
+else if(cmd==='log-warrant'){
+  if(!interaction.member.roles.cache.some(r => r.id === logWarrantRoleId)){
+    return interaction.reply({content:'You do not have permission to log warrants.', flags: MessageFlags.Ephemeral});
+  }
+
+  await interaction.deferReply({flags: MessageFlags.Ephemeral});
+
+  const username = interaction.options.getString('user');
+  const charges = interaction.options.getString('charges');
+  const warrantId = generateWarrantID();
+
+  // Fetch Roblox user data
+  const robloxData = await getRobloxUserData(username);
+  
+  const usernameDisplay = robloxData 
+    ? `[${robloxData.displayName}](${robloxData.profileUrl})`
+    : username;
+
+  const embed = new EmbedBuilder()
+    .setTitle('New Warrant')
+    .setDescription(`**ID:** ${warrantId}\n**Suspect:** ${usernameDisplay}\n**Charges:** ${charges}`)
+    .setColor('#95A5A6')
+    .setThumbnail(robloxData?.avatarUrl || 'https://media.discordapp.net/attachments/1410429525329973379/1414810355980304486/briarfield_county.png?ex=68efb992&is=68ee6812&hm=28106432618af10c82fd63ee23c673aeb3001f3cdead2f4ec0efed6fe8ed1025&=&format=webp&quality=lossless')
+    .setFooter({text:`Executed by ${interaction.user.tag}`})
+    .setTimestamp();
+
+  const completedButton = new ButtonBuilder()
+    .setCustomId(`warrant_completed_${warrantId}`)
+    .setLabel('Completed')
+    .setStyle(ButtonStyle.Success);
+
+  const removeButton = new ButtonBuilder()
+    .setCustomId(`warrant_remove_${warrantId}`)
+    .setLabel('Remove')
+    .setStyle(ButtonStyle.Danger);
+
+  const buttonRow = new ActionRowBuilder()
+    .addComponents(completedButton, removeButton);
+
+  const warrantChannelId = '1412528915381092462';
+  const warrantAnnounceChannelId = '1428920503438934046';
+
+  const warrantChannel = await interaction.client.channels.fetch(warrantChannelId);
+  const warrantAnnounceChannel = await interaction.client.channels.fetch(warrantAnnounceChannelId);
+  
+  if(warrantChannel) {
+    await warrantChannel.send({embeds:[embed], components:[buttonRow]});
+  }
+  
+  if(warrantAnnounceChannel) {
+    await warrantAnnounceChannel.send({embeds:[embed], components:[buttonRow]});
+  }
+
+  if(warrantChannel || warrantAnnounceChannel) {
+    const logs = loadLogs();
+    logs.warrants.push({id: warrantId, username, charges, moderator: interaction.user.id, timestamp: new Date().toISOString()});
+    saveLogs(logs);
+    await interaction.editReply({content:`Warrant logged successfully for ${username}.`});
+  } else {
+    await interaction.editReply({content:'Failed to log warrant: channels not found.'});
+  }
+}
 
 
 
