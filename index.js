@@ -3060,7 +3060,7 @@ else if(cmd==='statistics'){
   
   if(sub === 'view') {
     // Only role 1405655436585205846 can use this
-    if(!interaction.member.roles.cache.some(r => r.id === '1405655436585205846')){
+    if(!interaction.member.roles.cache.some(r => r.id === '1405655436585205846','1405655436585205841')){
       return interaction.reply({content:'You do not have permission to view other users\' statistics.', flags: MessageFlags.Ephemeral});
     }
 
