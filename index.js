@@ -3059,8 +3059,9 @@ else if(cmd==='statistics'){
   const sub = interaction.options.getSubcommand();
   
   if(sub === 'view') {
-    // Only role 1405655436585205846 can use this
-    if(!interaction.member.roles.cache.some(r => r.id === '1405655436585205846','1405655436585205841')){
+    // Roles that can use this command
+    const allowedStatRoles = ['1405655436585205846', '1405655436585205841'];
+    if(!interaction.member.roles.cache.some(r => allowedStatRoles.includes(r.id))){
       return interaction.reply({content:'You do not have permission to view other users\' statistics.', flags: MessageFlags.Ephemeral});
     }
 
