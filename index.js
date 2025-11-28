@@ -1339,43 +1339,40 @@ client.on('interactionCreate', async interaction=>{
     }
   }
 
-// Quiz answer button handlers
-if(interaction.customId.startsWith('quiz_answer_')) {
-  const session = activeQuizzes.get(interaction.user.id);
-  if(!session) {
-    return interaction.reply({content:'Quiz session not found.', flags: MessageFlags.Ephemeral});
+    // Quiz answer button handlers
+    if(interaction.customId.startsWith('quiz_answer_')) {
+      const session = activeQuizzes.get(interaction.user.id);
+      if(!session) {
+        return interaction.reply({content:'Quiz session not found.', flags: MessageFlags.Ephemeral});
+      }
+      
+      const quizDB = loadQuizzes();
+      const quiz = quizDB.quizzes.find(q => q.id === session.quizId);
+      
+      let answer;
+      if(interaction.customId === 'quiz_answer_true') {
+        answer = 'True';
+      } else if(interaction.customId === 'quiz_answer_false') {
+        answer = 'False';
+      } else {
+        const answerIndex = parseInt(interaction.customId.split('_')[2]);
+        answer = quiz.questions[session.currentQuestion].options[answerIndex];
+      }
+      
+      session.answers.push(answer);
+      session.currentQuestion++;
+      
+      await interaction.update({content: 'Answer recorded!', embeds: [], components: []});
+      
+      // Send next question or grade quiz
+      if(session.currentQuestion < quiz.questions.length) {
+        setTimeout(() => sendQuizQuestion(interaction.user, quiz, session.currentQuestion), 1000);
+      } else {
+        await gradeQuiz(interaction.user, quiz);
+      }
+      return;
+    }
   }
-  
-  const quizDB = loadQuizzes();
-  const quiz = quizDB.quizzes.find(q => q.id === session.quizId);
-  
-  let answer;
-  if(interaction.customId === 'quiz_answer_true') {
-    answer = 'True';
-  } else if(interaction.customId === 'quiz_answer_false') {
-    answer = 'False';
-  } else {
-    const answerIndex = parseInt(interaction.customId.split('_')[2]);
-    answer = quiz.questions[session.currentQuestion].options[answerIndex];
-  }
-  
-  session.answers.push(answer);
-  session.currentQuestion++;
-  
-  await interaction.update({content: 'Answer recorded!', embeds: [], components: []});
-  
-  // Send next question or grade quiz
-  if(session.currentQuestion < quiz.questions.length) {
-    setTimeout(() => sendQuizQuestion(interaction.user, quiz, session.currentQuestion), 1000);
-  } else {
-    await gradeQuiz(interaction.user, quiz);
-  }
-  return;
-}
-
-
-
-
 
   if(!interaction.isChatInputCommand() && !interaction.isModalSubmit()) return;
 
