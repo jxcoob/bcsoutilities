@@ -3045,7 +3045,237 @@ else if(cmd==='massshift-start'){
       }
     }
 
-
+else if(cmd==='quiz'){
+  const sub = interaction.options.getSubcommand();
+  
+  if(sub==='create'){
+    // Sheriff-only check
+    const sheriffRoleId = '1405655436585205846';
+    if(!interaction.member.roles.cache.has(sheriffRoleId)){
+      return interaction.reply({content:'Only the Sheriff can create quizzes.', flags: MessageFlags.Ephemeral});
+    }
+    
+    const title = interaction.options.getString('title');
+    const description = interaction.options.getString('description');
+    const passingScore = interaction.options.getInteger('passing-score');
+    const category = interaction.options.getString('category');
+    
+    const quizDB = loadQuizzes();
+    const quizId = generateQuizID(quizDB);
+    
+    quizDB.quizzes.push({
+      id: quizId,
+      title: title,
+      description: description,
+      passingScore: passingScore,
+      category: category,
+      questions: [],
+      createdBy: interaction.user.id,
+      createdAt: new Date().toISOString()
+    });
+    
+    saveQuizzes(quizDB);
+    
+    await interaction.reply({
+      content: `Quiz created! ID: ${quizId}\nUse \`/quiz add-question quiz-id:${quizId}\` to add questions.`,
+      flags: MessageFlags.Ephemeral
+    });
+  }
+  
+  else if(sub==='add-question'){
+    const sheriffRoleId = '1405655436585205846';
+    if(!interaction.member.roles.cache.has(sheriffRoleId)){
+      return interaction.reply({content:'Only the Sheriff can add questions.', flags: MessageFlags.Ephemeral});
+    }
+    
+    const quizId = interaction.options.getString('quiz-id');
+    const quizDB = loadQuizzes();
+    const quiz = quizDB.quizzes.find(q => q.id === quizId);
+    
+    if(!quiz){
+      return interaction.reply({content:'Quiz not found.', flags: MessageFlags.Ephemeral});
+    }
+    
+    const modal = new ModalBuilder()
+      .setCustomId(`add_question_${quizId}`)
+      .setTitle('Add Quiz Question');
+    
+    const questionInput = new TextInputBuilder()
+      .setCustomId('question_text')
+      .setLabel('Question')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true);
+    
+    const typeInput = new TextInputBuilder()
+      .setCustomId('question_type')
+      .setLabel('Type (multiple_choice, true_false)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
+    
+    const optionsInput = new TextInputBuilder()
+      .setCustomId('options')
+      .setLabel('Options (separate with |)')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(false);
+    
+    const answerInput = new TextInputBuilder()
+      .setCustomId('correct_answer')
+      .setLabel('Correct Answer')
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
+    
+    const explanationInput = new TextInputBuilder()
+      .setCustomId('explanation')
+      .setLabel('Explanation (optional)')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(false);
+    
+    modal.addComponents(
+      new ActionRowBuilder().addComponents(questionInput),
+      new ActionRowBuilder().addComponents(typeInput),
+      new ActionRowBuilder().addComponents(optionsInput),
+      new ActionRowBuilder().addComponents(answerInput),
+      new ActionRowBuilder().addComponents(explanationInput)
+    );
+    
+    await interaction.showModal(modal);
+  }
+  
+  else if(sub==='list'){
+    const quizDB = loadQuizzes();
+    
+    if(quizDB.quizzes.length === 0){
+      return interaction.reply({content:'No quizzes available.', flags: MessageFlags.Ephemeral});
+    }
+    
+    const embed = new EmbedBuilder()
+      .setTitle('Available Quizzes')
+      .setColor('#95A5A6')
+      .setFooter({text:'BCSO Quiz System'})
+      .setTimestamp();
+    
+    for(const quiz of quizDB.quizzes){
+      embed.addFields({
+        name: `${quiz.id} - ${quiz.title}`,
+        value: `Category: ${quiz.category}\nQuestions: ${quiz.questions.length}\nPassing Score: ${quiz.passingScore}%\n${quiz.description}`,
+        inline: false
+      });
+    }
+    
+    await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
+  }
+  
+  else if(sub==='take'){
+    const quizId = interaction.options.getString('quiz-id');
+    const quizDB = loadQuizzes();
+    const quiz = quizDB.quizzes.find(q => q.id === quizId);
+    
+    if(!quiz){
+      return interaction.reply({content:'Quiz not found.', flags: MessageFlags.Ephemeral});
+    }
+    
+    if(quiz.questions.length === 0){
+      return interaction.reply({content:'This quiz has no questions yet.', flags: MessageFlags.Ephemeral});
+    }
+    
+    if(activeQuizzes.has(interaction.user.id)){
+      return interaction.reply({content:'You are already taking a quiz. Please finish it first.', flags: MessageFlags.Ephemeral});
+    }
+    
+    activeQuizzes.set(interaction.user.id, {
+      quizId: quiz.id,
+      currentQuestion: 0,
+      answers: []
+    });
+    
+    await interaction.reply({
+      content: `Starting quiz: **${quiz.title}**\nCheck your DMs for the first question!`,
+      flags: MessageFlags.Ephemeral
+    });
+    
+    await sendQuizQuestion(interaction.user, quiz, 0);
+  }
+  
+  else if(sub==='results'){
+    const attemptsDB = loadQuizAttempts();
+    const userAttempts = attemptsDB.attempts.filter(a => a.userId === interaction.user.id);
+    
+    if(userAttempts.length === 0){
+      return interaction.reply({content:'You have not taken any quizzes yet.', flags: MessageFlags.Ephemeral});
+    }
+    
+    const embed = new EmbedBuilder()
+      .setTitle('Your Quiz Results')
+      .setColor('#95A5A6')
+      .setFooter({text:'BCSO Quiz System'})
+      .setTimestamp();
+    
+    for(const attempt of userAttempts.slice(-10)){
+      embed.addFields({
+        name: `${attempt.quizTitle} - ${attempt.passed ? '✅ Passed' : '❌ Failed'}`,
+        value: `Score: ${attempt.score}% (${attempt.correctAnswers}/${attempt.totalQuestions})\nDate: <t:${Math.floor(new Date(attempt.timestamp).getTime()/1000)}:f>`,
+        inline: false
+      });
+    }
+    
+    await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
+  }
+  
+  else if(sub==='view-results'){
+    const sheriffRoleId = '1405655436585205846';
+    if(!interaction.member.roles.cache.has(sheriffRoleId)){
+      return interaction.reply({content:'Only the Sheriff can view other users\' results.', flags: MessageFlags.Ephemeral});
+    }
+    
+    const targetUser = interaction.options.getUser('user');
+    const attemptsDB = loadQuizAttempts();
+    const userAttempts = attemptsDB.attempts.filter(a => a.userId === targetUser.id);
+    
+    if(userAttempts.length === 0){
+      return interaction.reply({content:`${targetUser.tag} has not taken any quizzes yet.`, flags: MessageFlags.Ephemeral});
+    }
+    
+    const embed = new EmbedBuilder()
+      .setTitle(`Quiz Results for ${targetUser.tag}`)
+      .setColor('#95A5A6')
+      .setFooter({text:'BCSO Quiz System'})
+      .setTimestamp();
+    
+    for(const attempt of userAttempts){
+      embed.addFields({
+        name: `${attempt.quizTitle} - ${attempt.passed ? '✅ Passed' : '❌ Failed'}`,
+        value: `Score: ${attempt.score}% (${attempt.correctAnswers}/${attempt.totalQuestions})\nDate: <t:${Math.floor(new Date(attempt.timestamp).getTime()/1000)}:f>`,
+        inline: false
+      });
+    }
+    
+    await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
+  }
+  
+  else if(sub==='delete'){
+    const sheriffRoleId = '1405655436585205846';
+    if(!interaction.member.roles.cache.has(sheriffRoleId)){
+      return interaction.reply({content:'Only the Sheriff can delete quizzes.', flags: MessageFlags.Ephemeral});
+    }
+    
+    const quizId = interaction.options.getString('quiz-id');
+    const quizDB = loadQuizzes();
+    const quizIndex = quizDB.quizzes.findIndex(q => q.id === quizId);
+    
+    if(quizIndex === -1){
+      return interaction.reply({content:'Quiz not found.', flags: MessageFlags.Ephemeral});
+    }
+    
+    const quiz = quizDB.quizzes[quizIndex];
+    quizDB.quizzes.splice(quizIndex, 1);
+    saveQuizzes(quizDB);
+    
+    await interaction.reply({
+      content: `Quiz "${quiz.title}" (${quizId}) has been deleted.`,
+      flags: MessageFlags.Ephemeral
+    });
+  }
+}
 
 
 
@@ -4075,37 +4305,6 @@ else if(cmd==='deployment-end'){
   }
 });
 
-else if(interaction.isModalSubmit() && interaction.customId.startsWith('add_question_')) {
-  const quizId = interaction.customId.split('_')[2];
-  const quizDB = loadQuizzes();
-  const quiz = quizDB.quizzes.find(q => q.id === quizId);
-  
-  if(!quiz) {
-    return interaction.reply({content:'Quiz not found.', flags: MessageFlags.Ephemeral});
-  }
-  
-  const questionText = interaction.fields.getTextInputValue('question_text');
-  const questionType = interaction.fields.getTextInputValue('question_type');
-  const options = interaction.fields.getTextInputValue('options');
-  const correctAnswer = interaction.fields.getTextInputValue('correct_answer');
-  const explanation = interaction.fields.getTextInputValue('explanation') || '';
-  
-  const newQuestion = {
-    text: questionText,
-    type: questionType,
-    options: options ? options.split('|') : [],
-    correctAnswer: correctAnswer,
-    explanation: explanation
-  };
-  
-  quiz.questions.push(newQuestion);
-  saveQuizzes(quizDB);
-  
-  await interaction.reply({
-    content: `Question added to ${quizId}! Total questions: ${quiz.questions.length}`,
-    flags: MessageFlags.Ephemeral
-  });
-}
 
 // ====== QUIZ HELPER FUNCTIONS ======
 async function sendQuizQuestion(user, quiz, questionIndex) {
