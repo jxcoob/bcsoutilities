@@ -112,9 +112,6 @@ const reviewsPath = path.join(__dirname, 'reviews.json');
 const logsPath = path.join(__dirname, 'logs.json');
 const retiredUsersPath = path.join(__dirname, 'retired_users.json');
 const notesPath = path.join(__dirname, 'notes.json');
-const quizzesPath = path.join(__dirname, 'quizzes.json');
-const quizAttemptsPath = path.join(__dirname, 'quiz_attempts.json');
-const activeQuizzes = new Map(); // Track users currently taking quizzes
 
 
 
@@ -361,35 +358,6 @@ function saveRetiredUsers(retiredUsersMap) {
   fs.writeFileSync(retiredUsersPath, JSON.stringify(obj, null, 2));
 }
 
-function loadQuizzes() {
-  if(fs.existsSync(quizzesPath)) return JSON.parse(fs.readFileSync(quizzesPath));
-  return {quizzes: []};
-}
-
-function saveQuizzes(data) {
-  fs.writeFileSync(quizzesPath, JSON.stringify(data, null, 2));
-}
-
-function loadQuizAttempts() {
-  if(fs.existsSync(quizAttemptsPath)) return JSON.parse(fs.readFileSync(quizAttemptsPath));
-  return {attempts: []};
-}
-
-function saveQuizAttempts(data) {
-  fs.writeFileSync(quizAttemptsPath, JSON.stringify(data, null, 2));
-}
-
-function generateQuizID(quizDB) {
-  const ids = quizDB.quizzes.map(q => parseInt(q.id.substring(2)));
-  const maxId = ids.length > 0 ? Math.max(...ids) : 0;
-  return `QZ${maxId + 1}`;
-}
-
-function generateAttemptID(attemptsDB) {
-  const ids = attemptsDB.attempts.map(a => parseInt(a.id.substring(2)));
-  const maxId = ids.length > 0 ? Math.max(...ids) : 0;
-  return `AT${maxId + 1}`;
-}
 
 
 
@@ -823,58 +791,7 @@ new SlashCommandBuilder()
   )
   .toJSON(),
   
-new SlashCommandBuilder()
-  .setName('quiz')
-  .setDescription('Quiz and testing system')
-  .setDefaultMemberPermissions(null)
-  .addSubcommand(sub =>
-    sub.setName('create')
-      .setDescription('Create a new quiz (Administration Only)')
-      .addStringOption(opt => opt.setName('title').setDescription('Quiz title').setRequired(true))
-      .addStringOption(opt => opt.setName('description').setDescription('Quiz description').setRequired(true))
-      .addIntegerOption(opt => opt.setName('passing-score').setDescription('Passing percentage (e.g., 80)').setRequired(true))
-      .addStringOption(opt => opt.setName('category').setDescription('Quiz category').setRequired(true)
-        .addChoices(
-          {name: 'SOP Knowledge', value: 'SOP'},
-          {name: 'Radio Codes', value: 'Radio'},
-          {name: 'Traffic Law', value: 'Traffic'},
-          {name: 'Criminal Law', value: 'Criminal'},
-          {name: 'Use of Force', value: 'UOF'},
-          {name: 'General Knowledge', value: 'General'}
-        )
-      )
-  )
-  .addSubcommand(sub =>
-    sub.setName('add-question')
-      .setDescription('Add a question to a quiz')
-      .addStringOption(opt => opt.setName('quiz-id').setDescription('Quiz ID').setRequired(true))
-  )
-  .addSubcommand(sub =>
-    sub.setName('list')
-      .setDescription('View all available quizzes')
-  )
-  .addSubcommand(sub =>
-    sub.setName('take')
-      .setDescription('Take a quiz')
-      .addStringOption(opt => opt.setName('quiz-id').setDescription('Quiz ID').setRequired(true))
-  )
-  .addSubcommand(sub =>
-    sub.setName('results')
-      .setDescription('View your quiz results')
-  )
-  .addSubcommand(sub =>
-    sub.setName('view-results')
-      .setDescription('View quiz results for a user (Administration Only)')
-      .addUserOption(opt => opt.setName('user').setDescription('User to view').setRequired(true))
-  )
-  .addSubcommand(sub =>
-    sub.setName('delete')
-      .setDescription('Delete a quiz (Administration Only)')
-      .addStringOption(opt => opt.setName('quiz-id').setDescription('Quiz ID').setRequired(true))
-  )
-  .toJSON(),
-
-  ];
+];
 
 
 
@@ -989,30 +906,20 @@ client.on('messageCreate', async message=>{
 
 
 
-
-
-
-
-
-
-
-
-
 // ====== INTERACTION HANDLER ======
-client.on('interactionCreate', async interaction => {
-  // ====== BUTTON HANDLERS ======
-  if (interaction.isButton()) {
+client.on('interactionCreate', async interaction=>{
+  if(interaction.isButton()) {
     // Training attendance handlers
-    if (interaction.customId.startsWith('training_attend_')) {
+    if(interaction.customId.startsWith('training_attend_')) {
       const messageId = interaction.customId.split('_')[2];
       
-      if (!trainingAttendees.has(messageId)) {
+      if(!trainingAttendees.has(messageId)) {
         trainingAttendees.set(messageId, new Set());
       }
       
       const attendees = trainingAttendees.get(messageId);
       
-      if (attendees.has(interaction.user.id)) {
+      if(attendees.has(interaction.user.id)) {
         const removeButton = new ButtonBuilder()
           .setCustomId(`training_remove_${messageId}`)
           .setLabel('Remove Attendance')
@@ -1021,28 +928,30 @@ client.on('interactionCreate', async interaction => {
         const removeRow = new ActionRowBuilder()
           .addComponents(removeButton);
         
-        return interaction.reply({
+        await interaction.reply({
           content: "You've already marked yourself as attending to this training, would you like to remove your attendance?",
           components: [removeRow],
           flags: MessageFlags.Ephemeral
         });
       } else {
         attendees.add(interaction.user.id);
-        return interaction.reply({
+        await interaction.reply({
           content: 'You have been marked as attending this training!',
           flags: MessageFlags.Ephemeral
         });
       }
+      return;
     }
     
-    if (interaction.customId.startsWith('training_view_')) {
+    if(interaction.customId.startsWith('training_view_')) {
       const messageId = interaction.customId.split('_')[2];
       
-      if (!trainingAttendees.has(messageId) || trainingAttendees.get(messageId).size === 0) {
-        return interaction.reply({
+      if(!trainingAttendees.has(messageId) || trainingAttendees.get(messageId).size === 0) {
+        await interaction.reply({
           content: 'No cadets have marked themselves as attending yet.',
           flags: MessageFlags.Ephemeral
         });
+        return;
       }
       
       const attendees = trainingAttendees.get(messageId);
@@ -1052,40 +961,43 @@ client.on('interactionCreate', async interaction => {
         .setTitle('Cadets Attending:')
         .setDescription(attendeesList)
         .setColor('#95A5A6')
-        .setFooter({ text: 'BCSO Utilities' })
+        .setFooter({text: 'BCSO Utilities'})
         .setTimestamp();
       
-      return interaction.reply({
+      await interaction.reply({
         embeds: [embed],
         flags: MessageFlags.Ephemeral
       });
+      return;
     }
     
-    if (interaction.customId.startsWith('training_remove_')) {
+    if(interaction.customId.startsWith('training_remove_')) {
       const messageId = interaction.customId.split('_')[2];
       
-      if (trainingAttendees.has(messageId)) {
+      if(trainingAttendees.has(messageId)) {
         const attendees = trainingAttendees.get(messageId);
         attendees.delete(interaction.user.id);
         
-        return interaction.update({
+        await interaction.update({
           content: 'Your attendance has been removed.',
-          components: []
+          components: [],
+          flags: MessageFlags.Ephemeral
         });
       }
+      return;
     }
 
     // Deployment attendance handlers
-    if (interaction.customId.startsWith('deployment_attend_')) {
+    if(interaction.customId.startsWith('deployment_attend_')) {
       const messageId = interaction.customId.split('_')[2];
       
-      if (!deploymentAttendees.has(messageId)) {
+      if(!deploymentAttendees.has(messageId)) {
         deploymentAttendees.set(messageId, new Set());
       }
       
       const attendees = deploymentAttendees.get(messageId);
       
-      if (attendees.has(interaction.user.id)) {
+      if(attendees.has(interaction.user.id)) {
         const removeButton = new ButtonBuilder()
           .setCustomId(`deployment_remove_${messageId}`)
           .setLabel('Remove Attendance')
@@ -1094,28 +1006,30 @@ client.on('interactionCreate', async interaction => {
         const removeRow = new ActionRowBuilder()
           .addComponents(removeButton);
         
-        return interaction.reply({
+        await interaction.reply({
           content: "You've already marked yourself as attending to this deployment, would you like to remove your attendance?",
           components: [removeRow],
           flags: MessageFlags.Ephemeral
         });
       } else {
         attendees.add(interaction.user.id);
-        return interaction.reply({
+        await interaction.reply({
           content: 'You have been marked as attending this deployment!',
           flags: MessageFlags.Ephemeral
         });
       }
+      return;
     }
     
-    if (interaction.customId.startsWith('deployment_view_')) {
+    if(interaction.customId.startsWith('deployment_view_')) {
       const messageId = interaction.customId.split('_')[2];
       
-      if (!deploymentAttendees.has(messageId) || deploymentAttendees.get(messageId).size === 0) {
-        return interaction.reply({
+      if(!deploymentAttendees.has(messageId) || deploymentAttendees.get(messageId).size === 0) {
+        await interaction.reply({
           content: 'No operators have marked themselves as attending yet.',
           flags: MessageFlags.Ephemeral
         });
+        return;
       }
       
       const attendees = deploymentAttendees.get(messageId);
@@ -1125,31 +1039,34 @@ client.on('interactionCreate', async interaction => {
         .setTitle('Operators Attending:')
         .setDescription(attendeesList)
         .setColor('#95A5A6')
-        .setFooter({ text: 'BCSO Utilities' })
+        .setFooter({text: 'BCSO Utilities'})
         .setTimestamp();
       
-      return interaction.reply({
+      await interaction.reply({
         embeds: [embed],
         flags: MessageFlags.Ephemeral
       });
+      return;
     }
     
-    if (interaction.customId.startsWith('deployment_remove_')) {
+    if(interaction.customId.startsWith('deployment_remove_')) {
       const messageId = interaction.customId.split('_')[2];
       
-      if (deploymentAttendees.has(messageId)) {
+      if(deploymentAttendees.has(messageId)) {
         const attendees = deploymentAttendees.get(messageId);
         attendees.delete(interaction.user.id);
         
-        return interaction.update({
+        await interaction.update({
           content: 'Your attendance has been removed.',
-          components: []
+          components: [],
+          flags: MessageFlags.Ephemeral
         });
       }
+      return;
     }
     
     // Warrant handlers
-    if (interaction.customId.startsWith('warrant_completed_') || interaction.customId.startsWith('warrant_remove_')) {
+    if(interaction.customId.startsWith('warrant_completed_') || interaction.customId.startsWith('warrant_remove_')) {
       const isCompleted = interaction.customId.startsWith('warrant_completed_');
       const warrantId = interaction.customId.split('_')[2];
       const completedUser = interaction.user.tag;
@@ -1163,7 +1080,7 @@ client.on('interactionCreate', async interaction => {
       const currentChannelId = interaction.channel.id;
       const otherChannelId = currentChannelId === warrantChannelId ? warrantAnnounceChannelId : warrantChannelId;
 
-      if (isCompleted) {
+      if(isCompleted) {
         const updatedEmbed = new EmbedBuilder(embed.data)
           .setColor('#2ECC71');
 
@@ -1176,23 +1093,23 @@ client.on('interactionCreate', async interaction => {
         const buttonRow = new ActionRowBuilder()
           .addComponents(completedButton);
 
-        await interaction.update({ embeds: [updatedEmbed], components: [buttonRow] });
+        await interaction.update({embeds: [updatedEmbed], components: [buttonRow]});
 
         try {
           const otherChannel = await interaction.client.channels.fetch(otherChannelId);
-          if (otherChannel) {
+          if(otherChannel) {
             const messages = await otherChannel.messages.fetch({ limit: 100 });
-            const targetMessage = messages.find(msg =>
-              msg.embeds.length > 0 &&
-              msg.embeds[0].data.description &&
+            const targetMessage = messages.find(msg => 
+              msg.embeds.length > 0 && 
+              msg.embeds[0].data.description && 
               msg.embeds[0].data.description.includes(warrantId)
             );
 
-            if (targetMessage) {
-              await targetMessage.edit({ embeds: [updatedEmbed], components: [buttonRow] });
+            if(targetMessage) {
+              await targetMessage.edit({embeds: [updatedEmbed], components: [buttonRow]});
             }
           }
-        } catch (err) {
+        } catch(err) {
           console.error('Error updating other channel:', err);
         }
       } else {
@@ -1208,23 +1125,23 @@ client.on('interactionCreate', async interaction => {
         const buttonRow = new ActionRowBuilder()
           .addComponents(removeButton);
 
-        await interaction.update({ embeds: [updatedEmbed], components: [buttonRow] });
+        await interaction.update({embeds: [updatedEmbed], components: [buttonRow]});
 
         try {
           const otherChannel = await interaction.client.channels.fetch(otherChannelId);
-          if (otherChannel) {
+          if(otherChannel) {
             const messages = await otherChannel.messages.fetch({ limit: 100 });
-            const targetMessage = messages.find(msg =>
-              msg.embeds.length > 0 &&
-              msg.embeds[0].data.description &&
+            const targetMessage = messages.find(msg => 
+              msg.embeds.length > 0 && 
+              msg.embeds[0].data.description && 
               msg.embeds[0].data.description.includes(warrantId)
             );
 
-            if (targetMessage) {
-              await targetMessage.edit({ embeds: [updatedEmbed], components: [buttonRow] });
+            if(targetMessage) {
+              await targetMessage.edit({embeds: [updatedEmbed], components: [buttonRow]});
             }
           }
-        } catch (err) {
+        } catch(err) {
           console.error('Error updating other channel:', err);
         }
       }
@@ -1232,11 +1149,11 @@ client.on('interactionCreate', async interaction => {
     }
 
     // Initiate operation button handler
-    if (interaction.customId.startsWith('initiate_operation_')) {
+    if(interaction.customId.startsWith('initiate_operation_')) {
       const caseId = interaction.customId.split('_')[2];
       
-      if (!global.caseData || !global.caseData[caseId]) {
-        return interaction.reply({ content: 'Case data not found.', flags: MessageFlags.Ephemeral });
+      if(!global.caseData || !global.caseData[caseId]) {
+        return interaction.reply({content:'Case data not found.', flags: MessageFlags.Ephemeral});
       }
 
       const caseInfo = global.caseData[caseId];
@@ -1250,19 +1167,20 @@ client.on('interactionCreate', async interaction => {
       const disabledRow = new ActionRowBuilder()
         .addComponents(disabledButton);
 
-      await interaction.update({ components: [disabledRow] });
+      await interaction.update({components: [disabledRow]});
 
       const operationEmbed = new EmbedBuilder()
         .setTitle('<:sword:1434375302355619930> UOTF Case Report')
         .setDescription(`A new case has been built up. Operators are now prompted to carry out this operation with a Team Leader or CRU Commander. Please stage and build up your plans for this operation to commence down below. React to this post if you are willing to attend this operation.\n\n**Suspects Involved:**\n\n${caseInfo.suspects}\n\n**Charges:**\n\n${caseInfo.charges}\n\n**Case Report:**\n\n${caseInfo.caseReport}`)
         .setColor('#95A5A6')
         .addFields(
-          { name: 'Initiated By', value: `<@${caseInfo.initiator}>`, inline: true },
-          { name: 'Case ID', value: caseId, inline: true }
+          {name:'Initiated By', value:`<@${caseInfo.initiator}>`, inline:true},
+          {name:'Case ID', value:caseId, inline:true}
         )
-        .setFooter({ text: 'BCSO Utilities' })
+        .setFooter({text:'BCSO Utilities'})
         .setTimestamp();
 
+      // ADD COMPLETION BUTTON TO OPERATIONS CHANNEL
       const completeButton = new ButtonBuilder()
         .setCustomId(`complete_operation_${caseId}`)
         .setLabel('Complete Operation')
@@ -1274,7 +1192,7 @@ client.on('interactionCreate', async interaction => {
       const cruForumChannelId = '1434380299604590623';
       const cruForumChannel = await interaction.client.channels.fetch(cruForumChannelId);
       
-      if (cruForumChannel) {
+      if(cruForumChannel) {
         await cruForumChannel.threads.create({
           name: caseId,
           message: {
@@ -1285,7 +1203,7 @@ client.on('interactionCreate', async interaction => {
       }
 
       await interaction.followUp({
-        content: '✅ Operation has been initiated and forwarded to the Critical Response Unit.',
+        content: `✅ Operation has been initiated and forwarded to the Critical Response Unit.`,
         flags: MessageFlags.Ephemeral
       });
       
@@ -1293,7 +1211,7 @@ client.on('interactionCreate', async interaction => {
     }
 
     // Complete operation button handler
-    if (interaction.customId.startsWith('complete_operation_')) {
+    if(interaction.customId.startsWith('complete_operation_')) {
       const caseId = interaction.customId.split('_')[2];
       
       const completedButton = new ButtonBuilder()
@@ -1314,383 +1232,46 @@ client.on('interactionCreate', async interaction => {
         components: [disabledRow]
       });
 
+      // Log to oversight channel
       const oversightChannelId = '1434380983498444800';
       const oversightChannel = await interaction.client.channels.fetch(oversightChannelId);
       
-      if (oversightChannel) {
+      if(oversightChannel) {
         const logEmbed = new EmbedBuilder()
           .setTitle('Operation Completed')
           .setDescription(`Case ${caseId} has been marked as completed by ${interaction.user}`)
           .setColor('#2ECC71')
           .addFields(
-            { name: 'Case ID', value: caseId, inline: true },
-            { name: 'Completed By', value: `${interaction.user}`, inline: true },
-            { name: 'Completed At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true }
+            {name:'Case ID', value:caseId, inline:true},
+            {name:'Completed By', value:`${interaction.user}`, inline:true},
+            {name:'Completed At', value:`<t:${Math.floor(Date.now()/1000)}:F>`, inline:true}
           )
-          .setFooter({ text: 'BCSO Utilities' })
+          .setFooter({text:'BCSO Utilities'})
           .setTimestamp();
         
-        await oversightChannel.send({ embeds: [logEmbed] });
+        await oversightChannel.send({embeds:[logEmbed]});
       }
 
       return;
     }
-
-    // Quiz answer button handlers
-    if (interaction.customId.startsWith('quiz_answer_')) {
-      const session = activeQuizzes.get(interaction.user.id);
-      if (!session) {
-        return interaction.reply({ content: 'Quiz session not found.', flags: MessageFlags.Ephemeral });
-      }
-      
-      const quizDB = loadQuizzes();
-      const quiz = quizDB.quizzes.find(q => q.id === session.quizId);
-      
-      if (!quiz) {
-        activeQuizzes.delete(interaction.user.id);
-        return interaction.reply({ content: 'Quiz not found.', flags: MessageFlags.Ephemeral });
-      }
-      
-      let answer;
-      if (interaction.customId === 'quiz_answer_true') {
-        answer = 'True';
-      } else if (interaction.customId === 'quiz_answer_false') {
-        answer = 'False';
-      } else {
-        const answerIndex = parseInt(interaction.customId.split('_')[2]);
-        answer = quiz.questions[session.currentQuestion].options[answerIndex];
-      }
-      
-      session.answers.push(answer);
-      session.currentQuestion++;
-      
-      await interaction.update({ content: 'Answer recorded!', embeds: [], components: [] });
-      
-      if (session.currentQuestion < quiz.questions.length) {
-        setTimeout(() => sendQuizQuestion(interaction.user, quiz, session.currentQuestion), 1000);
-      } else {
-        await gradeQuiz(interaction.user, quiz);
-      }
-      return;
-    }
   }
 
-  // ====== MODAL SUBMIT HANDLERS ======
-  if (interaction.isModalSubmit()) {
-    if (interaction.customId === 'report_modal') {
-      const sceneLocation = interaction.fields.getTextInputValue('scene_location');
-      const callsign = interaction.fields.getTextInputValue('callsign');
-      const description = interaction.fields.getTextInputValue('description');
-      const outcome = interaction.fields.getTextInputValue('outcome');
-      const reportId = generateReportID();
 
-      const embed = new EmbedBuilder()
-        .setTitle('Incident Report')
-        .setDescription(`**ID:** ${reportId}`)
-        .setColor('#95A5A6')
-        .addFields(
-          { name: 'Scene Location', value: sceneLocation, inline: false },
-          { name: 'Callsign / Roleplay Name', value: callsign, inline: false },
-          { name: 'Description', value: description, inline: false },
-          { name: 'Outcome', value: outcome, inline: false },
-          { name: 'Submitted By', value: `${interaction.user}`, inline: false }
-        )
-        .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
-        .setFooter({ text: 'BCSO Utilities' })
-        .setTimestamp();
 
-      const reportChannelId = '1427332378715492442';
-      const reportChannel = await interaction.client.channels.fetch(reportChannelId);
-      
-      if (reportChannel) {
-        await reportChannel.send({ embeds: [embed] });
-        const logs = loadLogs();
-        logs.reports.push({ id: reportId, sceneLocation, callsign, description, outcome, moderator: interaction.user.id, timestamp: new Date().toISOString() });
-        saveLogs(logs);
-        return interaction.reply({ content: 'Incident report submitted successfully.', flags: MessageFlags.Ephemeral });
-      } else {
-        return interaction.reply({ content: 'Failed to submit report: channel not found.', flags: MessageFlags.Ephemeral });
-      }
-    }
 
-    if (interaction.customId.startsWith('add_question_')) {
-      const quizId = interaction.customId.split('_')[2];
-      
-      const questionText = interaction.fields.getTextInputValue('question_text');
-      const questionType = interaction.fields.getTextInputValue('question_type');
-      const optionsRaw = interaction.fields.getTextInputValue('options');
-      const correctAnswer = interaction.fields.getTextInputValue('correct_answer');
-      const explanation = interaction.fields.getTextInputValue('explanation');
-      
-      const quizDB = loadQuizzes();
-      const quiz = quizDB.quizzes.find(q => q.id === quizId);
-      
-      if (!quiz) {
-        return interaction.reply({ content: 'Quiz not found.', flags: MessageFlags.Ephemeral });
-      }
-      
-      const newQuestion = {
-        text: questionText,
-        type: questionType,
-        correctAnswer: correctAnswer
-      };
-      
-      if (questionType === 'multiple_choice' && optionsRaw) {
-        newQuestion.options = optionsRaw.split('|').map(o => o.trim());
-      }
-      
-      if (explanation) {
-        newQuestion.explanation = explanation;
-      }
-      
-      quiz.questions.push(newQuestion);
-      saveQuizzes(quizDB);
-      
-      return interaction.reply({
-        content: `Question added to quiz ${quizId}! Total questions: ${quiz.questions.length}`,
-        flags: MessageFlags.Ephemeral
-      });
-    }
-  }
-  // ====== SLASH COMMAND HANDLERS ======
-  if (!interaction.isChatInputCommand()) return;
+
+
+
+  if(!interaction.isChatInputCommand() && !interaction.isModalSubmit()) return;
+
+
+
+
+
+
+
 
   const cmd = interaction.commandName;
-
-  
-    // [ALL YOUR EXISTING COMMAND HANDLERS GO HERE - infraction, roleprobie, retire, etc.]
-    // I'll just add the quiz command here since that's what needs fixing
-    
-    if (cmd === 'quiz') {
-      const sub = interaction.options.getSubcommand();
-      
-      if (sub === 'create') {
-        const sheriffRoleId = '1405655436585205846';
-        if (!interaction.member.roles.cache.has(sheriffRoleId)) {
-          return interaction.reply({ content: 'Only the Sheriff can create quizzes.', flags: MessageFlags.Ephemeral });
-        }
-        
-        const title = interaction.options.getString('title');
-        const description = interaction.options.getString('description');
-        const passingScore = interaction.options.getInteger('passing-score');
-        const category = interaction.options.getString('category');
-        
-        const quizDB = loadQuizzes();
-        const quizId = generateQuizID(quizDB);
-        
-        quizDB.quizzes.push({
-          id: quizId,
-          title: title,
-          description: description,
-          passingScore: passingScore,
-          category: category,
-          questions: [],
-          createdBy: interaction.user.id,
-          createdAt: new Date().toISOString()
-        });
-        
-        saveQuizzes(quizDB);
-        
-        await interaction.reply({
-          content: `Quiz created! ID: ${quizId}\nUse \`/quiz add-question quiz-id:${quizId}\` to add questions.`,
-          flags: MessageFlags.Ephemeral
-        });
-      }
-      
-      else if (sub === 'add-question') {
-        const sheriffRoleId = '1405655436585205846';
-        if (!interaction.member.roles.cache.has(sheriffRoleId)) {
-          return interaction.reply({ content: 'Only the Sheriff can add questions.', flags: MessageFlags.Ephemeral });
-        }
-        
-        const quizId = interaction.options.getString('quiz-id');
-        const quizDB = loadQuizzes();
-        const quiz = quizDB.quizzes.find(q => q.id === quizId);
-        
-        if (!quiz) {
-          return interaction.reply({ content: 'Quiz not found.', flags: MessageFlags.Ephemeral });
-        }
-        
-        const modal = new ModalBuilder()
-          .setCustomId(`add_question_${quizId}`)
-          .setTitle('Add Quiz Question');
-        
-        const questionInput = new TextInputBuilder()
-          .setCustomId('question_text')
-          .setLabel('Question')
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(true);
-        
-        const typeInput = new TextInputBuilder()
-          .setCustomId('question_type')
-          .setLabel('Type (multiple_choice, true_false)')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
-        
-        const optionsInput = new TextInputBuilder()
-          .setCustomId('options')
-          .setLabel('Options (separate with |)')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(false);
-        
-        const answerInput = new TextInputBuilder()
-          .setCustomId('correct_answer')
-          .setLabel('Correct Answer')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true);
-        
-        const explanationInput = new TextInputBuilder()
-          .setCustomId('explanation')
-          .setLabel('Explanation (optional)')
-          .setStyle(TextInputStyle.Paragraph)
-          .setRequired(false);
-        
-        modal.addComponents(
-          new ActionRowBuilder().addComponents(questionInput),
-          new ActionRowBuilder().addComponents(typeInput),
-          new ActionRowBuilder().addComponents(optionsInput),
-          new ActionRowBuilder().addComponents(answerInput),
-          new ActionRowBuilder().addComponents(explanationInput)
-        );
-        
-        await interaction.showModal(modal);
-      }
-      
-      else if (sub === 'list') {
-        const quizDB = loadQuizzes();
-        
-        if (quizDB.quizzes.length === 0) {
-          return interaction.reply({ content: 'No quizzes available.', flags: MessageFlags.Ephemeral });
-        }
-        
-        const embed = new EmbedBuilder()
-          .setTitle('Available Quizzes')
-          .setColor('#95A5A6')
-          .setFooter({ text: 'BCSO Quiz System' })
-          .setTimestamp();
-        
-        for (const quiz of quizDB.quizzes) {
-          embed.addFields({
-            name: `${quiz.id} - ${quiz.title}`,
-            value: `Category: ${quiz.category}\nQuestions: ${quiz.questions.length}\nPassing Score: ${quiz.passingScore}%\n${quiz.description}`,
-            inline: false
-          });
-        }
-        
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      }
-      
-      else if (sub === 'take') {
-        const quizId = interaction.options.getString('quiz-id');
-        const quizDB = loadQuizzes();
-        const quiz = quizDB.quizzes.find(q => q.id === quizId);
-        
-        if (!quiz) {
-          return interaction.reply({ content: 'Quiz not found.', flags: MessageFlags.Ephemeral });
-        }
-        
-        if (quiz.questions.length === 0) {
-          return interaction.reply({ content: 'This quiz has no questions yet.', flags: MessageFlags.Ephemeral });
-        }
-        
-        if (activeQuizzes.has(interaction.user.id)) {
-          return interaction.reply({ content: 'You are already taking a quiz. Please finish it first.', flags: MessageFlags.Ephemeral });
-        }
-        
-        activeQuizzes.set(interaction.user.id, {
-          quizId: quiz.id,
-          currentQuestion: 0,
-          answers: []
-        });
-        
-        await interaction.reply({
-          content: `Starting quiz: **${quiz.title}**\nCheck your DMs for the first question!`,
-          flags: MessageFlags.Ephemeral
-        });
-        
-        await sendQuizQuestion(interaction.user, quiz, 0);
-      }
-      
-      else if (sub === 'results') {
-        const attemptsDB = loadQuizAttempts();
-        const userAttempts = attemptsDB.attempts.filter(a => a.userId === interaction.user.id);
-        
-        if (userAttempts.length === 0) {
-          return interaction.reply({ content: 'You have not taken any quizzes yet.', flags: MessageFlags.Ephemeral });
-        }
-        
-        const embed = new EmbedBuilder()
-          .setTitle('Your Quiz Results')
-          .setColor('#95A5A6')
-          .setFooter({ text: 'BCSO Quiz System' })
-          .setTimestamp();
-        
-        for (const attempt of userAttempts.slice(-10)) {
-          embed.addFields({
-            name: `${attempt.quizTitle} - ${attempt.passed ? '✅ Passed' : '❌ Failed'}`,
-            value: `Score: ${attempt.score}% (${attempt.correctAnswers}/${attempt.totalQuestions})\nDate: <t:${Math.floor(new Date(attempt.timestamp).getTime() / 1000)}:f>`,
-            inline: false
-          });
-        }
-        
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      }
-      
-      else if (sub === 'view-results') {
-        const sheriffRoleId = '1405655436585205846';
-        if (!interaction.member.roles.cache.has(sheriffRoleId)) {
-          return interaction.reply({ content: 'Only the Sheriff can view other users\' results.', flags: MessageFlags.Ephemeral });
-        }
-        
-        const targetUser = interaction.options.getUser('user');
-        const attemptsDB = loadQuizAttempts();
-        const userAttempts = attemptsDB.attempts.filter(a => a.userId === targetUser.id);
-        
-        if (userAttempts.length === 0) {
-          return interaction.reply({ content: `${targetUser.tag} has not taken any quizzes yet.`, flags: MessageFlags.Ephemeral });
-        }
-        
-        const embed = new EmbedBuilder()
-          .setTitle(`Quiz Results for ${targetUser.tag}`)
-          .setColor('#95A5A6')
-          .setFooter({ text: 'BCSO Quiz System' })
-          .setTimestamp();
-        
-        for (const attempt of userAttempts) {
-          embed.addFields({
-            name: `${attempt.quizTitle} - ${attempt.passed ? '✅ Passed' : '❌ Failed'}`,
-            value: `Score: ${attempt.score}% (${attempt.correctAnswers}/${attempt.totalQuestions})\nDate: <t:${Math.floor(new Date(attempt.timestamp).getTime() / 1000)}:f>`,
-            inline: false
-          });
-        }
-        
-        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
-      }
-      
-      else if (sub === 'delete') {
-        const sheriffRoleId = '1405655436585205846';
-        if (!interaction.member.roles.cache.has(sheriffRoleId)) {
-          return interaction.reply({ content: 'Only the Sheriff can delete quizzes.', flags: MessageFlags.Ephemeral });
-        }
-        
-        const quizId = interaction.options.getString('quiz-id');
-        const quizDB = loadQuizzes();
-        const quizIndex = quizDB.quizzes.findIndex(q => q.id === quizId);
-        
-        if (quizIndex === -1) {
-          return interaction.reply({ content: 'Quiz not found.', flags: MessageFlags.Ephemeral });
-        }
-        
-        const quiz = quizDB.quizzes[quizIndex];
-        quizDB.quizzes.splice(quizIndex, 1);
-        saveQuizzes(quizDB);
-        
-        await interaction.reply({
-          content: `Quiz "${quiz.title}" (${quizId}) has been deleted.`,
-          flags: MessageFlags.Ephemeral
-        });
-      }
-    }
 
 
 
@@ -3349,47 +2930,6 @@ else if(cmd==='massshift-start'){
       }
     }
 
-// Add this AFTER the 'log-report' modal handler and BEFORE the main command try-catch closes
-
-if(interaction.isModalSubmit() && interaction.customId.startsWith('add_question_')){
-  const quizId = interaction.customId.split('_')[2];
-  
-  const questionText = interaction.fields.getTextInputValue('question_text');
-  const questionType = interaction.fields.getTextInputValue('question_type');
-  const optionsRaw = interaction.fields.getTextInputValue('options');
-  const correctAnswer = interaction.fields.getTextInputValue('correct_answer');
-  const explanation = interaction.fields.getTextInputValue('explanation');
-  
-  const quizDB = loadQuizzes();
-  const quiz = quizDB.quizzes.find(q => q.id === quizId);
-  
-  if(!quiz){
-    return interaction.reply({content:'Quiz not found.', flags: MessageFlags.Ephemeral});
-  }
-  
-  const newQuestion = {
-    text: questionText,
-    type: questionType,
-    correctAnswer: correctAnswer
-  };
-  
-  if(questionType === 'multiple_choice' && optionsRaw){
-    newQuestion.options = optionsRaw.split('|').map(o => o.trim());
-  }
-  
-  if(explanation){
-    newQuestion.explanation = explanation;
-  }
-  
-  quiz.questions.push(newQuestion);
-  saveQuizzes(quizDB);
-  
-  await interaction.reply({
-    content: `Question added to quiz ${quizId}! Total questions: ${quiz.questions.length}`,
-    flags: MessageFlags.Ephemeral
-  });
-  return;
-}
 
 
 
@@ -3591,52 +3131,48 @@ else if(cmd==='statistics'){
       return interaction.reply({content:'You do not have permission to view statistics.', flags: MessageFlags.Ephemeral});
     }
 
-    const logs = loadLogs();
-    const userCitations = logs.citations.filter(c => c.moderator === interaction.user.id);
-    const userArrests = logs.arrests.filter(a => a.moderator === interaction.user.id);
-    const userWarrants = logs.warrants.filter(w => w.moderator === interaction.user.id);
+}
 
-    const embed = new EmbedBuilder()
-      .setTitle('Your Statistics')
-      .setColor('#95A5A6')
-      .addFields(
-        {name:'Citations Issued',value:`${userCitations.length}`,inline:true},
-        {name:'Arrests Issued',value:`${userArrests.length}`,inline:true},
-        {name:'Warrants Issued',value:`${userWarrants.length}`,inline:true}
-      )
-      .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
-      .setFooter({text:'BCSO Utilities'})
-      .setTimestamp();
 
-    await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
-  }
-  
-  else if(sub === 'personal') {
-    if(!interaction.member.roles.cache.some(r => r.id === '1410486708998373387')){
-      return interaction.reply({content:'You do not have permission to view statistics.', flags: MessageFlags.Ephemeral});
+
+
+
+
+
+
+      const logs = loadLogs();
+      const userCitations = logs.citations.filter(c => c.moderator === interaction.user.id);
+      const userArrests = logs.arrests.filter(a => a.moderator === interaction.user.id);
+      const userWarrants = logs.warrants.filter(w => w.moderator === interaction.user.id);
+
+
+
+
+
+
+
+
+      const embed = new EmbedBuilder()
+        .setTitle('Your Statistics')
+        .setColor('#95A5A6')
+        .addFields(
+          {name:'Citations Issued',value:`${userCitations.length}`,inline:true},
+          {name:'Arrests Issued',value:`${userArrests.length}`,inline:true},
+          {name:'Warrants Issued',value:`${userWarrants.length}`,inline:true}
+        )
+        .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+        .setFooter({text:'BCSO Utilities'})
+        .setTimestamp();
+
+
+
+
+
+
+
+
+      await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
     }
-
-    const logs = loadLogs();
-    const userCitations = logs.citations.filter(c => c.moderator === interaction.user.id);
-    const userArrests = logs.arrests.filter(a => a.moderator === interaction.user.id);
-    const userWarrants = logs.warrants.filter(w => w.moderator === interaction.user.id);
-
-    const embed = new EmbedBuilder()
-      .setTitle('Your Statistics')
-      .setColor('#95A5A6')
-      .addFields(
-        {name:'Citations Issued',value:`${userCitations.length}`,inline:true},
-        {name:'Arrests Issued',value:`${userArrests.length}`,inline:true},
-        {name:'Warrants Issued',value:`${userWarrants.length}`,inline:true}
-      )
-      .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
-      .setFooter({text:'BCSO Utilities'})
-      .setTimestamp();
-
-    await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
-  }
-}  // <-- This should be the ONLY closing brace for statistics
-
 
 
 
@@ -4424,10 +3960,17 @@ else if(cmd==='deployment-end'){
   }
 });
 
-
-
 const app = express();
 app.get('/',(req,res)=>res.send('Bot is alive!'));
 app.listen(3000,()=>console.log('Web server running on port 3000'));
+
+client.login(token);
+
+
+
+
+
+
+
 
 client.login(token);
