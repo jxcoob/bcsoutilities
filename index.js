@@ -1457,7 +1457,7 @@ client.on('interactionCreate', async interaction => {
 
   const cmd = interaction.commandName;
 
-  try {
+  
     // [ALL YOUR EXISTING COMMAND HANDLERS GO HERE - infraction, roleprobie, retire, etc.]
     // I'll just add the quiz command here since that's what needs fixing
     
