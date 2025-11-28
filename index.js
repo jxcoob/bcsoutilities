@@ -112,6 +112,9 @@ const reviewsPath = path.join(__dirname, 'reviews.json');
 const logsPath = path.join(__dirname, 'logs.json');
 const retiredUsersPath = path.join(__dirname, 'retired_users.json');
 const notesPath = path.join(__dirname, 'notes.json');
+const quizzesPath = path.join(__dirname, 'quizzes.json');
+const quizAttemptsPath = path.join(__dirname, 'quiz_attempts.json');
+const activeQuizzes = new Map(); // Track users currently taking quizzes
 
 
 
@@ -358,6 +361,35 @@ function saveRetiredUsers(retiredUsersMap) {
   fs.writeFileSync(retiredUsersPath, JSON.stringify(obj, null, 2));
 }
 
+function loadQuizzes() {
+  if(fs.existsSync(quizzesPath)) return JSON.parse(fs.readFileSync(quizzesPath));
+  return {quizzes: []};
+}
+
+function saveQuizzes(data) {
+  fs.writeFileSync(quizzesPath, JSON.stringify(data, null, 2));
+}
+
+function loadQuizAttempts() {
+  if(fs.existsSync(quizAttemptsPath)) return JSON.parse(fs.readFileSync(quizAttemptsPath));
+  return {attempts: []};
+}
+
+function saveQuizAttempts(data) {
+  fs.writeFileSync(quizAttemptsPath, JSON.stringify(data, null, 2));
+}
+
+function generateQuizID(quizDB) {
+  const ids = quizDB.quizzes.map(q => parseInt(q.id.substring(2)));
+  const maxId = ids.length > 0 ? Math.max(...ids) : 0;
+  return `QZ${maxId + 1}`;
+}
+
+function generateAttemptID(attemptsDB) {
+  const ids = attemptsDB.attempts.map(a => parseInt(a.id.substring(2)));
+  const maxId = ids.length > 0 ? Math.max(...ids) : 0;
+  return `AT${maxId + 1}`;
+}
 
 
 
@@ -791,7 +823,58 @@ new SlashCommandBuilder()
   )
   .toJSON(),
   
-];
+new SlashCommandBuilder()
+  .setName('quiz')
+  .setDescription('Quiz and testing system')
+  .setDefaultMemberPermissions(null)
+  .addSubcommand(sub =>
+    sub.setName('create')
+      .setDescription('Create a new quiz (Sheriff only)')
+      .addStringOption(opt => opt.setName('title').setDescription('Quiz title').setRequired(true))
+      .addStringOption(opt => opt.setName('description').setDescription('Quiz description').setRequired(true))
+      .addIntegerOption(opt => opt.setName('passing-score').setDescription('Passing percentage (e.g., 80)').setRequired(true))
+      .addStringOption(opt => opt.setName('category').setDescription('Quiz category').setRequired(true)
+        .addChoices(
+          {name: 'SOP Knowledge', value: 'SOP'},
+          {name: 'Radio Codes', value: 'Radio'},
+          {name: 'Traffic Law', value: 'Traffic'},
+          {name: 'Criminal Law', value: 'Criminal'},
+          {name: 'Use of Force', value: 'UOF'},
+          {name: 'General Knowledge', value: 'General'}
+        )
+      )
+  )
+  .addSubcommand(sub =>
+    sub.setName('add-question')
+      .setDescription('Add a question to a quiz')
+      .addStringOption(opt => opt.setName('quiz-id').setDescription('Quiz ID').setRequired(true))
+  )
+  .addSubcommand(sub =>
+    sub.setName('list')
+      .setDescription('View all available quizzes')
+  )
+  .addSubcommand(sub =>
+    sub.setName('take')
+      .setDescription('Take a quiz')
+      .addStringOption(opt => opt.setName('quiz-id').setDescription('Quiz ID').setRequired(true))
+  )
+  .addSubcommand(sub =>
+    sub.setName('results')
+      .setDescription('View your quiz results')
+  )
+  .addSubcommand(sub =>
+    sub.setName('view-results')
+      .setDescription('View quiz results for a user (Sheriff only)')
+      .addUserOption(opt => opt.setName('user').setDescription('User to view').setRequired(true))
+  )
+  .addSubcommand(sub =>
+    sub.setName('delete')
+      .setDescription('Delete a quiz (Sheriff only)')
+      .addStringOption(opt => opt.setName('quiz-id').setDescription('Quiz ID').setRequired(true))
+  )
+  .toJSON(),
+
+  ];
 
 
 
@@ -1256,7 +1339,39 @@ client.on('interactionCreate', async interaction=>{
     }
   }
 
-
+// Quiz answer button handlers
+if(interaction.customId.startsWith('quiz_answer_')) {
+  const session = activeQuizzes.get(interaction.user.id);
+  if(!session) {
+    return interaction.reply({content:'Quiz session not found.', flags: MessageFlags.Ephemeral});
+  }
+  
+  const quizDB = loadQuizzes();
+  const quiz = quizDB.quizzes.find(q => q.id === session.quizId);
+  
+  let answer;
+  if(interaction.customId === 'quiz_answer_true') {
+    answer = 'True';
+  } else if(interaction.customId === 'quiz_answer_false') {
+    answer = 'False';
+  } else {
+    const answerIndex = parseInt(interaction.customId.split('_')[2]);
+    answer = quiz.questions[session.currentQuestion].options[answerIndex];
+  }
+  
+  session.answers.push(answer);
+  session.currentQuestion++;
+  
+  await interaction.update({content: 'Answer recorded!', embeds: [], components: []});
+  
+  // Send next question or grade quiz
+  if(session.currentQuestion < quiz.questions.length) {
+    setTimeout(() => sendQuizQuestion(interaction.user, quiz, session.currentQuestion), 1000);
+  } else {
+    await gradeQuiz(interaction.user, quiz);
+  }
+  return;
+}
 
 
 
@@ -3960,6 +4075,158 @@ else if(cmd==='deployment-end'){
   }
 });
 
+else if(interaction.isModalSubmit() && interaction.customId.startsWith('add_question_')) {
+  const quizId = interaction.customId.split('_')[2];
+  const quizDB = loadQuizzes();
+  const quiz = quizDB.quizzes.find(q => q.id === quizId);
+  
+  if(!quiz) {
+    return interaction.reply({content:'Quiz not found.', flags: MessageFlags.Ephemeral});
+  }
+  
+  const questionText = interaction.fields.getTextInputValue('question_text');
+  const questionType = interaction.fields.getTextInputValue('question_type');
+  const options = interaction.fields.getTextInputValue('options');
+  const correctAnswer = interaction.fields.getTextInputValue('correct_answer');
+  const explanation = interaction.fields.getTextInputValue('explanation') || '';
+  
+  const newQuestion = {
+    text: questionText,
+    type: questionType,
+    options: options ? options.split('|') : [],
+    correctAnswer: correctAnswer,
+    explanation: explanation
+  };
+  
+  quiz.questions.push(newQuestion);
+  saveQuizzes(quizDB);
+  
+  await interaction.reply({
+    content: `Question added to ${quizId}! Total questions: ${quiz.questions.length}`,
+    flags: MessageFlags.Ephemeral
+  });
+}
+
+// ====== QUIZ HELPER FUNCTIONS ======
+async function sendQuizQuestion(user, quiz, questionIndex) {
+  if(questionIndex >= quiz.questions.length) {
+    return gradeQuiz(user, quiz);
+  }
+  
+  const question = quiz.questions[questionIndex];
+  const embed = new EmbedBuilder()
+    .setTitle(`${quiz.title} - Question ${questionIndex + 1}/${quiz.questions.length}`)
+    .setDescription(question.text)
+    .setColor('#95A5A6')
+    .setFooter({text:'BCSO Quiz System'});
+  
+  const components = [];
+  
+  if(question.type === 'multiple_choice') {
+    const buttons = question.options.map((opt, idx) => {
+      return new ButtonBuilder()
+        .setCustomId(`quiz_answer_${idx}`)
+        .setLabel(opt)
+        .setStyle(ButtonStyle.Primary);
+    });
+    
+    // Split into rows of 2
+    for(let i = 0; i < buttons.length; i += 2) {
+      components.push(new ActionRowBuilder().addComponents(buttons.slice(i, i + 2)));
+    }
+  } else if(question.type === 'true_false') {
+    components.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('quiz_answer_true')
+        .setLabel('True')
+        .setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('quiz_answer_false')
+        .setLabel('False')
+        .setStyle(ButtonStyle.Danger)
+    ));
+  }
+  
+  try {
+    await user.send({embeds: [embed], components: components});
+  } catch(err) {
+    console.error('Could not DM user for quiz:', err);
+  }
+}
+
+async function gradeQuiz(user, quiz) {
+  const session = activeQuizzes.get(user.id);
+  if(!session) return;
+  
+  let correctAnswers = 0;
+  const totalQuestions = quiz.questions.length;
+  
+  // Grade answers
+  for(let i = 0; i < session.answers.length; i++) {
+    const question = quiz.questions[i];
+    const userAnswer = session.answers[i];
+    
+    if(question.type === 'short_answer') {
+      const correctAnswerLower = question.correctAnswer.toLowerCase().trim();
+      const userAnswerLower = userAnswer.toLowerCase().trim();
+      if(userAnswerLower === correctAnswerLower || correctAnswerLower.includes(userAnswerLower)) {
+        correctAnswers++;
+      }
+    } else {
+      if(userAnswer === question.correctAnswer) {
+        correctAnswers++;
+      }
+    }
+  }
+  
+  const score = Math.round((correctAnswers / totalQuestions) * 100);
+  const passed = score >= quiz.passingScore;
+  
+  // Save attempt
+  const attemptsDB = loadQuizAttempts();
+  const attemptId = generateAttemptID(attemptsDB);
+  
+  attemptsDB.attempts.push({
+    id: attemptId,
+    userId: user.id,
+    quizId: quiz.id,
+    quizTitle: quiz.title,
+    score: score,
+    correctAnswers: correctAnswers,
+    totalQuestions: totalQuestions,
+    passingScore: quiz.passingScore,
+    passed: passed,
+    answers: session.answers,
+    timestamp: new Date().toISOString()
+  });
+  
+  saveQuizAttempts(attemptsDB);
+  
+  // Send results
+  const resultEmbed = new EmbedBuilder()
+    .setTitle(passed ? '✅ Quiz Passed!' : '❌ Quiz Failed')
+    .setDescription(`**${quiz.title}**\n\nYour Score: **${score}%** (${correctAnswers}/${totalQuestions})\nPassing Score: ${quiz.passingScore}%`)
+    .setColor(passed ? '#2ECC71' : '#E74C3C')
+    .setFooter({text:'BCSO Quiz System'})
+    .setTimestamp();
+  
+  if(!passed) {
+    resultEmbed.addFields({
+      name: 'Try Again',
+      value: 'You can retake this quiz at any time using `/quiz take`'
+    });
+  }
+  
+  try {
+    await user.send({embeds: [resultEmbed]});
+  } catch(err) {
+    console.error('Could not DM quiz results:', err);
+  }
+  
+  // Clear session
+  activeQuizzes.delete(user.id);
+}
+
 const app = express();
 app.get('/',(req,res)=>res.send('Bot is alive!'));
 app.listen(3000,()=>console.log('Web server running on port 3000'));
@@ -3972,5 +4239,3 @@ client.login(token);
 
 
 
-
-client.login(token);
