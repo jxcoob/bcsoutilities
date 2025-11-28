@@ -3084,7 +3084,7 @@ if(interaction.isModalSubmit() && interaction.customId.startsWith('add_question_
   return;
 }
 
-else if(cmd==='quiz'){
+if(cmd==='quiz'){
   const sub = interaction.options.getSubcommand();
   
   if(sub==='create'){
