@@ -992,7 +992,6 @@ client.on('messageCreate', async message=>{
 
 
 
-How can I help you today?
 
 
 
