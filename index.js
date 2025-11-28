@@ -1022,30 +1022,28 @@ client.on('interactionCreate', async interaction => {
         const removeRow = new ActionRowBuilder()
           .addComponents(removeButton);
         
-        await interaction.reply({
+        return interaction.reply({
           content: "You've already marked yourself as attending to this training, would you like to remove your attendance?",
           components: [removeRow],
           flags: MessageFlags.Ephemeral
         });
       } else {
         attendees.add(interaction.user.id);
-        await interaction.reply({
+        return interaction.reply({
           content: 'You have been marked as attending this training!',
           flags: MessageFlags.Ephemeral
         });
       }
-      return;
     }
     
     if (interaction.customId.startsWith('training_view_')) {
       const messageId = interaction.customId.split('_')[2];
       
       if (!trainingAttendees.has(messageId) || trainingAttendees.get(messageId).size === 0) {
-        await interaction.reply({
+        return interaction.reply({
           content: 'No cadets have marked themselves as attending yet.',
           flags: MessageFlags.Ephemeral
         });
-        return;
       }
       
       const attendees = trainingAttendees.get(messageId);
@@ -1058,11 +1056,10 @@ client.on('interactionCreate', async interaction => {
         .setFooter({ text: 'BCSO Utilities' })
         .setTimestamp();
       
-      await interaction.reply({
+      return interaction.reply({
         embeds: [embed],
         flags: MessageFlags.Ephemeral
       });
-      return;
     }
     
     if (interaction.customId.startsWith('training_remove_')) {
@@ -1072,13 +1069,11 @@ client.on('interactionCreate', async interaction => {
         const attendees = trainingAttendees.get(messageId);
         attendees.delete(interaction.user.id);
         
-        await interaction.update({
+        return interaction.update({
           content: 'Your attendance has been removed.',
-          components: [],
-          flags: MessageFlags.Ephemeral
+          components: []
         });
       }
-      return;
     }
 
     // Deployment attendance handlers
@@ -1100,30 +1095,28 @@ client.on('interactionCreate', async interaction => {
         const removeRow = new ActionRowBuilder()
           .addComponents(removeButton);
         
-        await interaction.reply({
+        return interaction.reply({
           content: "You've already marked yourself as attending to this deployment, would you like to remove your attendance?",
           components: [removeRow],
           flags: MessageFlags.Ephemeral
         });
       } else {
         attendees.add(interaction.user.id);
-        await interaction.reply({
+        return interaction.reply({
           content: 'You have been marked as attending this deployment!',
           flags: MessageFlags.Ephemeral
         });
       }
-      return;
     }
     
     if (interaction.customId.startsWith('deployment_view_')) {
       const messageId = interaction.customId.split('_')[2];
       
       if (!deploymentAttendees.has(messageId) || deploymentAttendees.get(messageId).size === 0) {
-        await interaction.reply({
+        return interaction.reply({
           content: 'No operators have marked themselves as attending yet.',
           flags: MessageFlags.Ephemeral
         });
-        return;
       }
       
       const attendees = deploymentAttendees.get(messageId);
@@ -1136,11 +1129,10 @@ client.on('interactionCreate', async interaction => {
         .setFooter({ text: 'BCSO Utilities' })
         .setTimestamp();
       
-      await interaction.reply({
+      return interaction.reply({
         embeds: [embed],
         flags: MessageFlags.Ephemeral
       });
-      return;
     }
     
     if (interaction.customId.startsWith('deployment_remove_')) {
@@ -1150,13 +1142,11 @@ client.on('interactionCreate', async interaction => {
         const attendees = deploymentAttendees.get(messageId);
         attendees.delete(interaction.user.id);
         
-        await interaction.update({
+        return interaction.update({
           content: 'Your attendance has been removed.',
-          components: [],
-          flags: MessageFlags.Ephemeral
+          components: []
         });
       }
-      return;
     }
     
     // Warrant handlers
@@ -1296,7 +1286,7 @@ client.on('interactionCreate', async interaction => {
       }
 
       await interaction.followUp({
-        content: `✅ Operation has been initiated and forwarded to the Critical Response Unit.`,
+        content: '✅ Operation has been initiated and forwarded to the Critical Response Unit.',
         flags: MessageFlags.Ephemeral
       });
       
@@ -1377,7 +1367,6 @@ client.on('interactionCreate', async interaction => {
       
       await interaction.update({ content: 'Answer recorded!', embeds: [], components: [] });
       
-      // Send next question or grade quiz
       if (session.currentQuestion < quiz.questions.length) {
         setTimeout(() => sendQuizQuestion(interaction.user, quiz, session.currentQuestion), 1000);
       } else {
@@ -1389,7 +1378,6 @@ client.on('interactionCreate', async interaction => {
 
   // ====== MODAL SUBMIT HANDLERS ======
   if (interaction.isModalSubmit()) {
-    // Report modal handler
     if (interaction.customId === 'report_modal') {
       const sceneLocation = interaction.fields.getTextInputValue('scene_location');
       const callsign = interaction.fields.getTextInputValue('callsign');
@@ -1420,14 +1408,12 @@ client.on('interactionCreate', async interaction => {
         const logs = loadLogs();
         logs.reports.push({ id: reportId, sceneLocation, callsign, description, outcome, moderator: interaction.user.id, timestamp: new Date().toISOString() });
         saveLogs(logs);
-        await interaction.reply({ content: 'Incident report submitted successfully.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: 'Incident report submitted successfully.', flags: MessageFlags.Ephemeral });
       } else {
-        await interaction.reply({ content: 'Failed to submit report: channel not found.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: 'Failed to submit report: channel not found.', flags: MessageFlags.Ephemeral });
       }
-      return;
     }
 
-    // Quiz question modal handler
     if (interaction.customId.startsWith('add_question_')) {
       const quizId = interaction.customId.split('_')[2];
       
@@ -1461,14 +1447,12 @@ client.on('interactionCreate', async interaction => {
       quiz.questions.push(newQuestion);
       saveQuizzes(quizDB);
       
-      await interaction.reply({
+      return interaction.reply({
         content: `Question added to quiz ${quizId}! Total questions: ${quiz.questions.length}`,
         flags: MessageFlags.Ephemeral
       });
-      return;
     }
   }
-
   // ====== SLASH COMMAND HANDLERS ======
   if (!interaction.isChatInputCommand()) return;
 
