@@ -829,7 +829,7 @@ new SlashCommandBuilder()
   .setDefaultMemberPermissions(null)
   .addSubcommand(sub =>
     sub.setName('create')
-      .setDescription('Create a new quiz (Sheriff only)')
+      .setDescription('Create a new quiz (Administration Only)')
       .addStringOption(opt => opt.setName('title').setDescription('Quiz title').setRequired(true))
       .addStringOption(opt => opt.setName('description').setDescription('Quiz description').setRequired(true))
       .addIntegerOption(opt => opt.setName('passing-score').setDescription('Passing percentage (e.g., 80)').setRequired(true))
@@ -864,12 +864,12 @@ new SlashCommandBuilder()
   )
   .addSubcommand(sub =>
     sub.setName('view-results')
-      .setDescription('View quiz results for a user (Sheriff only)')
+      .setDescription('View quiz results for a user (Administration Only)')
       .addUserOption(opt => opt.setName('user').setDescription('User to view').setRequired(true))
   )
   .addSubcommand(sub =>
     sub.setName('delete')
-      .setDescription('Delete a quiz (Sheriff only)')
+      .setDescription('Delete a quiz (Administration Only)')
       .addStringOption(opt => opt.setName('quiz-id').setDescription('Quiz ID').setRequired(true))
   )
   .toJSON(),
