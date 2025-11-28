@@ -3042,6 +3042,48 @@ else if(cmd==='massshift-start'){
       }
     }
 
+// Add this AFTER the 'log-report' modal handler and BEFORE the main command try-catch closes
+
+if(interaction.isModalSubmit() && interaction.customId.startsWith('add_question_')){
+  const quizId = interaction.customId.split('_')[2];
+  
+  const questionText = interaction.fields.getTextInputValue('question_text');
+  const questionType = interaction.fields.getTextInputValue('question_type');
+  const optionsRaw = interaction.fields.getTextInputValue('options');
+  const correctAnswer = interaction.fields.getTextInputValue('correct_answer');
+  const explanation = interaction.fields.getTextInputValue('explanation');
+  
+  const quizDB = loadQuizzes();
+  const quiz = quizDB.quizzes.find(q => q.id === quizId);
+  
+  if(!quiz){
+    return interaction.reply({content:'Quiz not found.', flags: MessageFlags.Ephemeral});
+  }
+  
+  const newQuestion = {
+    text: questionText,
+    type: questionType,
+    correctAnswer: correctAnswer
+  };
+  
+  if(questionType === 'multiple_choice' && optionsRaw){
+    newQuestion.options = optionsRaw.split('|').map(o => o.trim());
+  }
+  
+  if(explanation){
+    newQuestion.explanation = explanation;
+  }
+  
+  quiz.questions.push(newQuestion);
+  saveQuizzes(quizDB);
+  
+  await interaction.reply({
+    content: `Question added to quiz ${quizId}! Total questions: ${quiz.questions.length}`,
+    flags: MessageFlags.Ephemeral
+  });
+  return;
+}
+
 else if(cmd==='quiz'){
   const sub = interaction.options.getSubcommand();
   
@@ -3492,55 +3534,33 @@ else if(cmd==='statistics'){
 
     await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
   }
-}  
+  
   else if(sub === 'personal') {
-    // Anyone with the deputy role can view their own stats
     if(!interaction.member.roles.cache.some(r => r.id === '1410486708998373387')){
       return interaction.reply({content:'You do not have permission to view statistics.', flags: MessageFlags.Ephemeral});
     }
 
-}
+    const logs = loadLogs();
+    const userCitations = logs.citations.filter(c => c.moderator === interaction.user.id);
+    const userArrests = logs.arrests.filter(a => a.moderator === interaction.user.id);
+    const userWarrants = logs.warrants.filter(w => w.moderator === interaction.user.id);
 
+    const embed = new EmbedBuilder()
+      .setTitle('Your Statistics')
+      .setColor('#95A5A6')
+      .addFields(
+        {name:'Citations Issued',value:`${userCitations.length}`,inline:true},
+        {name:'Arrests Issued',value:`${userArrests.length}`,inline:true},
+        {name:'Warrants Issued',value:`${userWarrants.length}`,inline:true}
+      )
+      .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
+      .setFooter({text:'BCSO Utilities'})
+      .setTimestamp();
 
+    await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
+  }
+}  // <-- This should be the ONLY closing brace for statistics
 
-
-
-
-
-
-      const logs = loadLogs();
-      const userCitations = logs.citations.filter(c => c.moderator === interaction.user.id);
-      const userArrests = logs.arrests.filter(a => a.moderator === interaction.user.id);
-      const userWarrants = logs.warrants.filter(w => w.moderator === interaction.user.id);
-
-
-
-
-
-
-
-
-      const embed = new EmbedBuilder()
-        .setTitle('Your Statistics')
-        .setColor('#95A5A6')
-        .addFields(
-          {name:'Citations Issued',value:`${userCitations.length}`,inline:true},
-          {name:'Arrests Issued',value:`${userArrests.length}`,inline:true},
-          {name:'Warrants Issued',value:`${userWarrants.length}`,inline:true}
-        )
-        .setImage('https://media.discordapp.net/attachments/1410429525329973379/1420971878981570622/CADET_TRAINING.png?ex=68efba70&is=68ee68f0&hm=91677fa47a337403cc4804fa00e289e23a6f9288aeed39037d10c3bcc0e6a2e0&=&format=webp&quality=lossless')
-        .setFooter({text:'BCSO Utilities'})
-        .setTimestamp();
-
-
-
-
-
-
-
-
-      await interaction.reply({embeds:[embed], flags: MessageFlags.Ephemeral});
-    }
 
 
 
